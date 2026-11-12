@@ -161,12 +161,40 @@ public class DivineWeaponItem extends Item {
             burst(level, ParticleTypes.EXPLOSION_EMITTER, center.x, center.y, center.z, 8, 2, 1, 2, 0);
             damage(level, player, center, 8.0, 24.0f);
             damage(level, player, o.add(d.scale(4)), 5.0, 12.0f);
+            scheduleUltimateAftershocks(player, center);
         } else {
             Vec3 end = o.add(d.scale(7));
             burst(level, ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 1, player.getZ(), 180, 1.1, 1, 1.1, .2);
             player.teleportTo(end.x, end.y, end.z);
             burst(level, ParticleTypes.DRAGON_BREATH, end.x, end.y, end.z, 120, 1.2, 1, 1.2, .08);
             damage(level, player, end, 3.2, 8.0f);
+        }
+    }
+
+    /** Three delayed shockwaves turn each ultimate into a readable multi-stage finisher. */
+    private void scheduleUltimateAftershocks(ServerPlayer player, Vec3 center) {
+        for (int phase = 1; phase <= 3; phase++) {
+            final int stage = phase;
+            SkillSequenceManager.schedule(player, phase * 4, caster -> {
+                if (!(caster.level() instanceof ServerLevel impactLevel)) return;
+                double radius = 2.6 + stage * 1.35;
+                net.minecraft.core.particles.SimpleParticleType particle = switch (beast) {
+                    case AZURE_DRAGON -> ParticleTypes.ELECTRIC_SPARK;
+                    case WHITE_TIGER -> ParticleTypes.CRIT;
+                    case VERMILION_BIRD -> ParticleTypes.FLAME;
+                    case BLACK_TORTOISE -> ParticleTypes.SNOWFLAKE;
+                };
+                Vec3 waveCenter = center.add(0, stage * 0.22, 0);
+                ring(impactLevel, waveCenter, radius, particle, 48);
+                ring(impactLevel, waveCenter, radius * 0.72,
+                        beast == BEAST.VERMILION_BIRD ? ParticleTypes.SOUL_FIRE_FLAME : particle, 36);
+                burst(impactLevel, particle, waveCenter.x, waveCenter.y, waveCenter.z,
+                        48, radius * 0.28, 0.45, radius * 0.28, 0.035);
+                if (stage == 3) {
+                    burst(impactLevel, ParticleTypes.EXPLOSION, waveCenter.x, waveCenter.y,
+                            waveCenter.z, 5, 1.8, 0.8, 1.8, 0.02);
+                }
+            });
         }
     }
 
@@ -190,6 +218,7 @@ public class DivineWeaponItem extends Item {
             burst(level, ParticleTypes.EXPLOSION_EMITTER, center.x, center.y, center.z, 12, 2.5, 1, 2.5, 0);
             burst(level, ParticleTypes.CLOUD, center.x, center.y, center.z, 450, 4, 1.2, 4, .2);
             damage(level, player, center, 9.0, 26.0f);
+            scheduleUltimateAftershocks(player, center);
         } else {
             for (int n = 0; n < 4; n++) {
                 Vec3 slash = o.add(d.scale(1.5 + n * 1.2));
@@ -232,6 +261,7 @@ public class DivineWeaponItem extends Item {
             burst(level, ParticleTypes.LAVA, center.x, center.y + 1, center.z, 180, 3.5, 2, 3.5, .04);
             burst(level, ParticleTypes.EXPLOSION_EMITTER, center.x, center.y, center.z, 10, 2, 1, 2, 0);
             damage(level, player, center, 9.0, 25.0f);
+            scheduleUltimateAftershocks(player, center);
         } else {
             Vec3 end = o.add(d.scale(6));
             player.teleportTo(end.x, end.y, end.z);
@@ -266,6 +296,7 @@ public class DivineWeaponItem extends Item {
             player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 240, 3));
             player.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 240, 3));
             player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 160, 2));
+            scheduleUltimateAftershocks(player, center);
         } else {
             player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 70, 3));
             player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 70, 1));
