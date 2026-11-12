@@ -1,0 +1,20 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="All Rights Reserved"
+[[mods]]
+modId="sasinsu"
+version="${mod_version}"
+displayName="Four Divine Beasts"
+description='''Four legendary weapons inspired by the Azure Dragon, White Tiger, Vermilion Bird and Black Tortoise.'''
+[[dependencies.sasinsu]]
+modId="forge"
+mandatory=true
+versionRange="[47,)"
+ordering="NONE"
+side="BOTH"
+[[dependencies.sasinsu]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1,1.21)"
+ordering="NONE"
+side="BOTH"
