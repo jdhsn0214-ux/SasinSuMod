@@ -52,13 +52,8 @@ public class DivineWeaponItem extends Item {
         player.getPersistentData().putLong(key, now + cooldownTicks(skill));
         InteractionHand hand = player.getMainHandItem() == stack ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
 
-        // A visible wind-up gives every skill a readable start before its hit window.
-        Vec3 windupOrigin = player.position().add(0, 0.15, 0);
-        ring(level, windupOrigin, skill == 3 ? 2.8 : 1.55, windupParticle(), skill == 3 ? 40 : 24);
-        burst(level, windupParticle(), player.getX(), player.getY() + 1.0, player.getZ(),
-                skill == 3 ? 36 : 14, .35, .55, .35, .025);
-        level.playSound(null, player.blockPosition(), SoundEvents.AMETHYST_BLOCK_CHIME,
-                SoundSource.PLAYERS, skill == 3 ? 1.5f : .8f, skill == 3 ? .55f : 1.15f);
+        // Each beast has its own wind-up silhouette instead of sharing one generic ring.
+        presentWindup(level, player, skill);
 
         SkillSequenceManager.schedule(player, windupTicks(skill), caster -> {
             ItemStack currentStack = caster.getItemInHand(hand);
@@ -80,20 +75,97 @@ public class DivineWeaponItem extends Item {
                     SoundSource.PLAYERS, skill == 3 ? 2.4f : 1.5f,
                     skill == 3 ? 0.65f : 0.9f + impactLevel.random.nextFloat() * 0.2f);
 
-            // A short recovery pulse marks the end of the combo and keeps the impact readable.
+            // Weapon-specific recovery tells the player which fighting style just resolved.
             Vec3 recoveryCenter = origin.add(look.scale(skill == 3 ? 6.0 : skill == 2 ? 3.5 : 2.2));
             SkillSequenceManager.schedule(caster, skill == 3 ? 7 : 3, recovered -> {
-                if (!(recovered.level() instanceof ServerLevel recoveryLevel)) return;
-                ring(recoveryLevel, recoveryCenter, skill == 3 ? 3.4 : 1.8,
-                        windupParticle(), skill == 3 ? 36 : 20);
-                burst(recoveryLevel, windupParticle(), recoveryCenter.x, recoveryCenter.y,
-                        recoveryCenter.z, skill == 3 ? 28 : 12, .45, .35, .45, .018);
+                if (recovered.level() instanceof ServerLevel recoveryLevel) {
+                    presentRecovery(recoveryLevel, recovered, recoveryCenter, skill);
+                }
             });
 
             if (currentStack.isDamageableItem()) {
                 currentStack.hurtAndBreak(1, caster, p -> p.broadcastBreakEvent(hand));
             }
         });
+    }
+
+    private void presentWindup(ServerLevel level, ServerPlayer player, int skill) {
+        Vec3 base = player.position().add(0, 0.18, 0);
+        Vec3 look = player.getLookAngle().normalize();
+        switch (beast) {
+            case AZURE_DRAGON -> {
+                // A forward lightning lane: the sword gathers power in its attack direction.
+                for (int i = 1; i <= 5; i++) {
+                    Vec3 point = base.add(look.scale(i * 0.42)).add(0, 0.35 * Math.sin(i), 0);
+                    burst(level, ParticleTypes.ELECTRIC_SPARK, point.x, point.y + 1, point.z,
+                            skill == 3 ? 12 : 5, .12, .28, .12, .035);
+                }
+                level.playSound(null, player.blockPosition(), SoundEvents.TRIDENT_THUNDER,
+                        SoundSource.PLAYERS, skill == 3 ? 1.5f : .8f, .8f);
+            }
+            case WHITE_TIGER -> {
+                // Three claw marks close toward the target, emphasizing a heavy melee weapon.
+                for (int claw = -1; claw <= 1; claw++) {
+                    Vec3 point = base.add(look.scale(1.0)).add(-look.z * claw * .65, .9, look.x * claw * .65);
+                    burst(level, ParticleTypes.CRIT, point.x, point.y, point.z,
+                            skill == 3 ? 24 : 12, .28, .3, .28, .12);
+                    burst(level, ParticleTypes.SWEEP_ATTACK, point.x, point.y, point.z, 1, 0, 0, 0, 0);
+                }
+                level.playSound(null, player.blockPosition(), SoundEvents.AXE_STRIP,
+                        SoundSource.PLAYERS, skill == 3 ? 1.4f : .85f, .65f);
+            }
+            case VERMILION_BIRD -> {
+                // A rising ember spiral, not a ground ring.
+                for (int i = 0; i < 7; i++) {
+                    double angle = i * Math.PI / 2.4;
+                    double radius = .45 + i * .09;
+                    double x = player.getX() + Math.cos(angle) * radius;
+                    double z = player.getZ() + Math.sin(angle) * radius;
+                    burst(level, ParticleTypes.FLAME, x, player.getY() + .25 + i * .25, z,
+                            skill == 3 ? 10 : 5, .08, .12, .08, .025);
+                }
+                level.playSound(null, player.blockPosition(), SoundEvents.FIRECHARGE_USE,
+                        SoundSource.PLAYERS, skill == 3 ? 1.3f : .8f, 1.15f);
+            }
+            case BLACK_TORTOISE -> {
+                // Two compact shell layers form a defensive tell around the wielder.
+                ring(level, base, skill == 3 ? 2.5 : 1.45, ParticleTypes.SNOWFLAKE, 32);
+                ring(level, base.add(0, .65, 0), skill == 3 ? 2.0 : 1.1, ParticleTypes.SOUL_FIRE_FLAME, 24);
+                level.playSound(null, player.blockPosition(), SoundEvents.SHIELD_BLOCK,
+                        SoundSource.PLAYERS, skill == 3 ? 1.35f : .8f, .7f);
+            }
+        }
+    }
+
+    private void presentRecovery(ServerLevel level, ServerPlayer player, Vec3 center, int skill) {
+        switch (beast) {
+            case AZURE_DRAGON -> {
+                for (int i = 0; i < 5; i++) {
+                    Vec3 p = center.add(0, i * .28, 0);
+                    burst(level, ParticleTypes.ELECTRIC_SPARK, p.x, p.y, p.z, 8, .18, .18, .18, .06);
+                }
+            }
+            case WHITE_TIGER -> {
+                burst(level, ParticleTypes.CLOUD, center.x, center.y, center.z,
+                        skill == 3 ? 48 : 22, .9, .18, .9, .12);
+                burst(level, ParticleTypes.CRIT, center.x, center.y + .25, center.z,
+                        skill == 3 ? 32 : 14, .65, .2, .65, .08);
+            }
+            case VERMILION_BIRD -> {
+                for (int i = 0; i < 6; i++) {
+                    double angle = i * Math.PI / 3.0;
+                    double x = center.x + Math.cos(angle) * .8;
+                    double z = center.z + Math.sin(angle) * .8;
+                    burst(level, ParticleTypes.SOUL_FIRE_FLAME, x, center.y + i * .22, z,
+                            7, .08, .12, .08, .025);
+                }
+            }
+            case BLACK_TORTOISE -> {
+                ring(level, center, skill == 3 ? 3.2 : 1.7, ParticleTypes.SNOWFLAKE, 40);
+                ring(level, center.add(0, .45, 0), skill == 3 ? 2.5 : 1.25,
+                        ParticleTypes.SOUL_FIRE_FLAME, 28);
+            }
+        }
     }
 
     private int windupTicks(int skill) {
