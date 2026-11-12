@@ -28,13 +28,14 @@ public class SkillPacket {
         context.enqueueWork(() -> {
             ServerPlayer player = context.getSender();
             if (player == null || packet.skill < 2 || packet.skill > 4) return;
+
             ItemStack stack = player.getMainHandItem();
-            if (!(stack.getItem() instanceof DivineWeaponItem weapon)) {
+            if (!(stack.getItem() instanceof DivineWeaponItem)) {
                 stack = player.getOffhandItem();
-                if (!(stack.getItem() instanceof DivineWeaponItem)) return;
-                weapon = (DivineWeaponItem) stack.getItem();
             }
-            weapon.activateSkill(player, packet.skill, stack);
+            if (stack.getItem() instanceof DivineWeaponItem weapon) {
+                weapon.activateSkill(player, packet.skill, stack);
+            }
         });
         context.setPacketHandled(true);
     }
