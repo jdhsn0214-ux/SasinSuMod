@@ -3,14 +3,14 @@ package com.example.sasinsu.item;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.Mob;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -32,155 +32,217 @@ public class DivineWeaponItem extends Item {
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
-        if (player.getCooldowns().isOnCooldown(this)) return InteractionResultHolder.fail(stack);
-        if (!level.isClientSide && level instanceof ServerLevel server) {
-            player.swing(hand, true);
-            castSkill(server, player);
-            summonSpirit(server, player);
-            player.getCooldowns().addCooldown(this, cooldownTicks());
-            stack.hurtAndBreak(1, player, p -> p.broadcastBreakEvent(hand));
+        if (player.isCrouching()) return InteractionResultHolder.pass(stack);
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            activateSkill(serverPlayer, 1, stack);
         }
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
     }
 
-    private int cooldownTicks() {
-        return switch (beast) {
-            case AZURE_DRAGON -> 240;
-            case WHITE_TIGER -> 220;
-            case VERMILION_BIRD -> 180;
-            case BLACK_TORTOISE -> 300;
+    public void activateSkill(ServerPlayer player, int skill, ItemStack stack) {
+        if (skill < 1 || skill > 4 || !(player.level() instanceof ServerLevel level)) return;
+        String key = "sasinsu_cd_" + beast.name() + "_" + skill;
+        long now = level.getGameTime();
+        long readyAt = player.getPersistentData().getLong(key);
+        if (now < readyAt) return;
+
+        player.getPersistentData().putLong(key, now + cooldownTicks(skill));
+        InteractionHand hand = player.getMainHandItem() == stack ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
+        player.swing(hand, true);
+        Vec3 origin = player.position().add(0, 1.0, 0);
+        Vec3 look = player.getLookAngle().normalize();
+
+        switch (beast) {
+            case AZURE_DRAGON -> dragonSkill(level, player, origin, look, skill);
+            case WHITE_TIGER -> tigerSkill(level, player, origin, look, skill);
+            case VERMILION_BIRD -> phoenixSkill(level, player, origin, look, skill);
+            case BLACK_TORTOISE -> tortoiseSkill(level, player, origin, look, skill);
+        }
+
+        level.playSound(null, player.blockPosition(), soundFor(skill),
+                SoundSource.PLAYERS, skill == 3 ? 2.4f : 1.5f,
+                skill == 3 ? 0.65f : 0.9f + level.random.nextFloat() * 0.2f);
+        if (stack.isDamageableItem()) stack.hurtAndBreak(1, player, p -> p.broadcastBreakEvent(hand));
+    }
+
+    private int cooldownTicks(int skill) {
+        return switch (skill) {
+            case 1 -> 35;
+            case 2 -> 100;
+            case 3 -> 320;
+            default -> 75;
         };
     }
 
-    private void castSkill(ServerLevel level, Player player) {
-        Vec3 look = player.getLookAngle().normalize();
-        Vec3 origin = player.position().add(0, 1.0, 0);
-        level.playSound(null, player.blockPosition(), switch (beast) {
-            case AZURE_DRAGON -> SoundEvents.LIGHTNING_BOLT_THUNDER;
-            case WHITE_TIGER -> SoundEvents.PLAYER_ATTACK_SWEEP;
+    private net.minecraft.sounds.SoundEvent soundFor(int skill) {
+        if (skill == 3) return SoundEvents.LIGHTNING_BOLT_THUNDER;
+        return switch (beast) {
+            case AZURE_DRAGON -> SoundEvents.PLAYER_ATTACK_SWEEP;
+            case WHITE_TIGER -> SoundEvents.PLAYER_ATTACK_STRONG;
             case VERMILION_BIRD -> SoundEvents.FIRECHARGE_USE;
             case BLACK_TORTOISE -> SoundEvents.SHIELD_BLOCK;
-        }, SoundSource.PLAYERS, 1.5f, 0.75f + level.random.nextFloat() * 0.35f);
-
-        switch (beast) {
-            case AZURE_DRAGON -> dragonBurst(level, player, origin, look);
-            case WHITE_TIGER -> tigerCleave(level, player, origin, look);
-            case VERMILION_BIRD -> phoenixFlurry(level, player, origin, look);
-            case BLACK_TORTOISE -> tortoiseWard(level, player, origin);
-        }
-    }
-
-    private void summonSpirit(ServerLevel level, Player player) {
-        Mob spirit;
-        switch (beast) {
-            case AZURE_DRAGON -> spirit = EntityType.PHANTOM.create(level);
-            case WHITE_TIGER -> spirit = EntityType.WOLF.create(level);
-            case VERMILION_BIRD -> spirit = EntityType.PARROT.create(level);
-            case BLACK_TORTOISE -> spirit = EntityType.TURTLE.create(level);
-            default -> { return; }
-        }
-        if (spirit == null) return;
-
-        Vec3 forward = player.getLookAngle().normalize();
-        spirit.moveTo(player.getX() + forward.x * 2.0, player.getY() + 0.3,
-                player.getZ() + forward.z * 2.0, player.getYRot(), 0);
-        spirit.setNoAi(true);
-        spirit.setPersistenceRequired();
-        spirit.setGlowingTag(true);
-        spirit.setCustomName(Component.literal(switch (beast) {
-            case AZURE_DRAGON -> "§b청룡의 영령";
-            case WHITE_TIGER -> "§f백호의 영령";
-            case VERMILION_BIRD -> "§c주작의 영령";
-            case BLACK_TORTOISE -> "§3현무의 영령";
-        }));
-        spirit.setCustomNameVisible(true);
-        spirit.getPersistentData().putBoolean("sasinsu_summon", true);
-        spirit.getPersistentData().putString("sasinsu_beast", beast.name());
-        spirit.getPersistentData().putUUID("sasinsu_owner", player.getUUID());
-        level.addFreshEntity(spirit);
-
-        var particle = switch (beast) {
-            case AZURE_DRAGON -> ParticleTypes.ELECTRIC_SPARK;
-            case WHITE_TIGER -> ParticleTypes.CRIT;
-            case VERMILION_BIRD -> ParticleTypes.FLAME;
-            case BLACK_TORTOISE -> ParticleTypes.SOUL_FIRE_FLAME;
         };
-        level.sendParticles(particle, spirit.getX(), spirit.getY() + 0.8, spirit.getZ(),
-                65, 0.8, 0.8, 0.8, 0.08);
     }
 
-    private void dragonBurst(ServerLevel level, Player player, Vec3 o, Vec3 dir) {
-        for (int i = 1; i <= 22; i++) {
-            Vec3 p = o.add(dir.scale(i * 0.72));
-            ring(level, p, 1.0 + i * 0.10, ParticleTypes.ELECTRIC_SPARK, 20);
-            level.sendParticles(ParticleTypes.DRAGON_BREATH, p.x, p.y, p.z, 16, .4, .4, .4, .025);
-            level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, p.x, p.y, p.z, 5, .25, .25, .25, .04);
-            damage(level, player, p, 1.35, 7.0f);
+    private void dragonSkill(ServerLevel level, ServerPlayer player, Vec3 o, Vec3 d, int skill) {
+        if (skill == 1) {
+            for (int i = 1; i <= 12; i++) {
+                Vec3 p = o.add(d.scale(i * 0.75));
+                ring(level, p, 0.8 + i * 0.08, ParticleTypes.ELECTRIC_SPARK, 18);
+                level.sendParticles(ParticleTypes.DRAGON_BREATH, p.x, p.y, p.z, 10, .3, .3, .3, .02);
+                damage(level, player, p, 1.15, 4.5f);
+            }
+        } else if (skill == 2) {
+            Vec3 center = o.add(d.scale(4));
+            for (int wave = 0; wave < 5; wave++) {
+                double radius = 1.2 + wave * .65;
+                ring(level, center.add(0, wave * .28, 0), radius, ParticleTypes.ELECTRIC_SPARK, 48);
+                ring(level, center.add(0, wave * .28, 0), radius * .78, ParticleTypes.DRAGON_BREATH, 36);
+            }
+            damage(level, player, center, 4.8, 10.0f);
+            level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, center.x, center.y, center.z, 2, .5, .5, .5, 0);
+        } else if (skill == 3) {
+            Vec3 center = o.add(d.scale(8));
+            for (int y = 0; y < 9; y++) {
+                double radius = 4.8 - y * .35;
+                ring(level, center.add(0, y * .48, 0), radius, ParticleTypes.ELECTRIC_SPARK, 72);
+                ring(level, center.add(0, y * .48, 0), radius * .72, ParticleTypes.SOUL_FIRE_FLAME, 54);
+            }
+            level.sendParticles(ParticleTypes.DRAGON_BREATH, center.x, center.y + 2, center.z, 500, 3.8, 2.8, 3.8, .12);
+            level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, center.x, center.y, center.z, 8, 2, 1, 2, 0);
+            damage(level, player, center, 8.0, 24.0f);
+            damage(level, player, o.add(d.scale(4)), 5.0, 12.0f);
+        } else {
+            Vec3 end = o.add(d.scale(7));
+            level.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 1, player.getZ(), 180, 1.1, 1, 1.1, .2);
+            player.teleportTo(end.x, end.y, end.z);
+            level.sendParticles(ParticleTypes.DRAGON_BREATH, end.x, end.y, end.z, 120, 1.2, 1, 1.2, .08);
+            damage(level, player, end, 3.2, 8.0f);
         }
-        level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, o.x + dir.x * 12, o.y,
-                o.z + dir.z * 12, 2, .6, .6, .6, 0);
-        level.sendParticles(ParticleTypes.ELECTRIC_SPARK, o.x, o.y, o.z, 150, 1.4, 1.0, 1.4, .14);
     }
 
-    private void tigerCleave(ServerLevel level, Player player, Vec3 o, Vec3 dir) {
-        Vec3 center = o.add(dir.scale(3.2));
-        for (int arc = 0; arc < 4; arc++) {
-            for (int i = 0; i < 36; i++) {
-                double angle = Math.PI * (i / 35.0) - Math.PI / 2;
-                Vec3 p = center.add(Math.cos(angle) * (2.0 + arc * .42), .15 + arc * .18,
-                        Math.sin(angle) * (2.0 + arc * .42));
-                level.sendParticles(ParticleTypes.SWEEP_ATTACK, p.x, p.y, p.z, 1, 0, 0, 0, 0);
-                level.sendParticles(ParticleTypes.CRIT, p.x, p.y, p.z, 4, .08, .08, .08, .08);
+    private void tigerSkill(ServerLevel level, ServerPlayer player, Vec3 o, Vec3 d, int skill) {
+        Vec3 center = o.add(d.scale(skill == 1 ? 3 : skill == 2 ? 4 : 6));
+        if (skill == 1) {
+            tigerClaw(level, player, center, 2.7, 6.0f);
+        } else if (skill == 2) {
+            for (int n = 0; n < 3; n++) {
+                Vec3 wave = center.add(d.scale(n * 1.1));
+                ring(level, wave, 2.0 + n * .6, ParticleTypes.CRIT, 56);
+                damage(level, player, wave, 2.6, 5.0f);
+            }
+            level.sendParticles(ParticleTypes.CLOUD, center.x, center.y, center.z, 150, 2, .5, 2, .12);
+        } else if (skill == 3) {
+            for (int n = 0; n < 7; n++) {
+                double r = 2.0 + n * .72;
+                ring(level, center.add(0, n * .12, 0), r, ParticleTypes.SWEEP_ATTACK, 64);
+                ring(level, center.add(0, n * .12, 0), r * .82, ParticleTypes.CRIT, 64);
+            }
+            level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, center.x, center.y, center.z, 12, 2.5, 1, 2.5, 0);
+            level.sendParticles(ParticleTypes.CLOUD, center.x, center.y, center.z, 450, 4, 1.2, 4, .2);
+            damage(level, player, center, 9.0, 26.0f);
+        } else {
+            for (int n = 0; n < 4; n++) {
+                Vec3 slash = o.add(d.scale(1.5 + n * 1.2));
+                tigerClaw(level, player, slash, 2.0, 3.5f);
             }
         }
-        damage(level, player, center, 5.0, 14.0f);
-        level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, center.x, center.y, center.z, 1, .5, .5, .5, 0);
-        level.sendParticles(ParticleTypes.CLOUD, center.x, center.y, center.z, 130, 2.0, .45, 2.0, .14);
     }
 
-    private void phoenixFlurry(ServerLevel level, Player player, Vec3 o, Vec3 dir) {
-        for (int hit = 0; hit < 7; hit++) {
-            Vec3 p = o.add(dir.scale(1.2 + hit * 0.95));
-            level.sendParticles(ParticleTypes.FLAME, p.x, p.y, p.z, 45, .6, .55, .6, .07);
-            level.sendParticles(ParticleTypes.LAVA, p.x, p.y, p.z, 10, .3, .3, .3, .025);
-            level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, p.x, p.y, p.z, 12, .35, .35, .35, .04);
-            damage(level, player, p, 1.25, 3.5f);
+    private void tigerClaw(ServerLevel level, ServerPlayer player, Vec3 center, double radius, float power) {
+        for (int claw = -1; claw <= 1; claw++) {
+            Vec3 c = center.add(claw * .8, claw * .18, 0);
+            ring(level, c, radius, ParticleTypes.SWEEP_ATTACK, 28);
+            level.sendParticles(ParticleTypes.CRIT, c.x, c.y, c.z, 28, .45, .35, .45, .12);
         }
-        Vec3 end = o.add(dir.scale(7.5));
-        level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, end.x, end.y, end.z, 2, .6, .6, .6, 0);
-        level.sendParticles(ParticleTypes.FLAME, end.x, end.y, end.z, 180, 1.6, 1.2, 1.6, .14);
+        damage(level, player, center, radius, power);
     }
 
-    private void tortoiseWard(ServerLevel level, Player player, Vec3 o) {
-        player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
-                net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 240, 2));
-        player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
-                net.minecraft.world.effect.MobEffects.ABSORPTION, 240, 2));
-        player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
-                net.minecraft.world.effect.MobEffects.REGENERATION, 100, 1));
-        ring(level, o, 3.2, ParticleTypes.HAPPY_VILLAGER, 96);
-        ring(level, o, 2.5, ParticleTypes.SOUL_FIRE_FLAME, 72);
-        ring(level, o.add(0, 1.2, 0), 2.0, ParticleTypes.ENCHANT, 64);
-        level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, o.x, o.y + .7, o.z, 120, 1.2, 1.1, 1.2, .14);
+    private void phoenixSkill(ServerLevel level, ServerPlayer player, Vec3 o, Vec3 d, int skill) {
+        Vec3 center = o.add(d.scale(skill == 3 ? 7 : 3.5));
+        if (skill == 1) {
+            for (int i = 1; i <= 7; i++) {
+                Vec3 p = o.add(d.scale(i));
+                level.sendParticles(ParticleTypes.FLAME, p.x, p.y, p.z, 28, .35, .35, .35, .06);
+                level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, p.x, p.y, p.z, 8, .2, .2, .2, .03);
+                damage(level, player, p, 1.15, 3.5f);
+            }
+        } else if (skill == 2) {
+            for (int n = 0; n < 5; n++) {
+                Vec3 p = center.add(0, n * .55, 0);
+                ring(level, p, 1.5 + n * .55, ParticleTypes.FLAME, 48);
+                level.sendParticles(ParticleTypes.LAVA, p.x, p.y, p.z, 24, .8, .5, .8, .03);
+            }
+            damage(level, player, center, 5.0, 11.0f);
+        } else if (skill == 3) {
+            for (int y = 0; y < 10; y++) {
+                double radius = 5.5 - y * .38;
+                ring(level, center.add(0, y * .42, 0), radius, ParticleTypes.FLAME, 80);
+                ring(level, center.add(0, y * .42, 0), radius * .72, ParticleTypes.SOUL_FIRE_FLAME, 64);
+            }
+            level.sendParticles(ParticleTypes.LAVA, center.x, center.y + 1, center.z, 180, 3.5, 2, 3.5, .04);
+            level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, center.x, center.y, center.z, 10, 2, 1, 2, 0);
+            damage(level, player, center, 9.0, 25.0f);
+        } else {
+            Vec3 end = o.add(d.scale(6));
+            player.teleportTo(end.x, end.y, end.z);
+            level.sendParticles(ParticleTypes.FLAME, end.x, end.y, end.z, 180, 1.2, 1, 1.2, .1);
+            level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, end.x, end.y, end.z, 70, .8, .8, .8, .06);
+            damage(level, player, end, 3.0, 8.0f);
+        }
+    }
+
+    private void tortoiseSkill(ServerLevel level, ServerPlayer player, Vec3 o, Vec3 d, int skill) {
+        if (skill == 1) {
+            player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 100, 1));
+            player.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 100, 1));
+            ring(level, o, 2.5, ParticleTypes.SOUL_FIRE_FLAME, 64);
+            ring(level, o.add(0, .8, 0), 2.0, ParticleTypes.ENCHANT, 48);
+        } else if (skill == 2) {
+            Vec3 center = o.add(d.scale(3.5));
+            for (int n = 0; n < 5; n++) ring(level, center.add(0, n * .35, 0),
+                    1.8 + n * .55, ParticleTypes.SNOWFLAKE, 56);
+            level.sendParticles(ParticleTypes.CLOUD, center.x, center.y, center.z, 180, 2, .6, 2, .08);
+            damage(level, player, center, 4.8, 9.0f);
+        } else if (skill == 3) {
+            Vec3 center = o.add(d.scale(5));
+            for (int y = 0; y < 8; y++) {
+                double radius = 5.0 - y * .42;
+                ring(level, center.add(0, y * .38, 0), radius, ParticleTypes.SNOWFLAKE, 72);
+                ring(level, center.add(0, y * .38, 0), radius * .78, ParticleTypes.SOUL_FIRE_FLAME, 64);
+            }
+            level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, center.x, center.y + 1, center.z, 220, 3, 2, 3, .14);
+            level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, center.x, center.y, center.z, 8, 2, 1, 2, 0);
+            damage(level, player, center, 8.0, 20.0f);
+            player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 240, 3));
+            player.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 240, 3));
+            player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 160, 2));
+        } else {
+            player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 70, 3));
+            player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 70, 1));
+            ring(level, o, 3.4, ParticleTypes.SNOWFLAKE, 96);
+            level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, o.x, o.y + .7, o.z, 100, 1.2, 1, 1.2, .12);
+            damage(level, player, o.add(d.scale(2)), 2.8, 5.0f);
+        }
     }
 
     private void ring(ServerLevel level, Vec3 center, double radius,
                       net.minecraft.core.particles.SimpleParticleType particle, int count) {
         for (int i = 0; i < count; i++) {
-            double a = Math.PI * 2 * i / count;
-            level.sendParticles(particle, center.x + Math.cos(a) * radius, center.y + .1,
-                    center.z + Math.sin(a) * radius, 1, 0, .02, 0, 0);
+            double angle = Math.PI * 2.0 * i / count;
+            level.sendParticles(particle, center.x + Math.cos(angle) * radius, center.y + .08,
+                    center.z + Math.sin(angle) * radius, 1, 0, .02, 0, 0);
         }
     }
 
-    private void damage(ServerLevel level, Player player, Vec3 center, double radius, float amount) {
+    private void damage(ServerLevel level, ServerPlayer player, Vec3 center, double radius, float amount) {
         AABB area = new AABB(center, center).inflate(radius);
         List<LivingEntity> targets = level.getEntitiesOfClass(LivingEntity.class, area,
-                e -> e != player && e.isAlive() && !e.isAlliedTo(player));
+                entity -> entity != player && entity.isAlive() && !entity.isAlliedTo(player));
         for (LivingEntity target : targets) {
             target.hurt(level.damageSources().playerAttack(player), amount);
-            Vec3 knock = target.position().subtract(player.position()).normalize().scale(0.8);
-            target.push(knock.x, 0.25, knock.z);
+            Vec3 knockback = target.position().subtract(player.position()).normalize().scale(0.85);
+            target.push(knockback.x, 0.28, knockback.z);
         }
     }
 
