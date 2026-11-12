@@ -20,7 +20,7 @@ public final class ClientSkillHandler {
     @SubscribeEvent
     public static void onMouseButton(InputEvent.MouseButton.Pre event) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.player == null || !minecraft.player.isCrouching()
+        if (minecraft.player == null || minecraft.screen != null || !minecraft.player.isCrouching()
                 || event.getAction() != GLFW.GLFW_PRESS) return;
 
         int skill = event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT ? 2
@@ -38,7 +38,7 @@ public final class ClientSkillHandler {
                 && event.getKey() != GLFW.GLFW_KEY_RIGHT_SHIFT)) return;
 
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.player == null) return;
+        if (minecraft.player == null || minecraft.screen != null) return;
         long now = System.currentTimeMillis();
         if (now - lastSneakPress <= 360L && now - lastSpecialSent > 500L) {
             SasinSuNetwork.sendSkill(4);
