@@ -141,6 +141,7 @@ public class DivineWeaponItem extends Item {
                 burst(level, ParticleTypes.DRAGON_BREATH, p.x, p.y, p.z, 10, .3, .3, .3, .02);
                 damage(level, player, p, 1.15, 4.5f);
             }
+            scheduleFollowupStrikes(player, o.add(d.scale(5.0)), d, 1.5f, 1.35);
         } else if (skill == 2) {
             Vec3 center = o.add(d.scale(4));
             for (int wave = 0; wave < 5; wave++) {
@@ -150,6 +151,7 @@ public class DivineWeaponItem extends Item {
             }
             damage(level, player, center, 4.8, 10.0f);
             burst(level, ParticleTypes.EXPLOSION_EMITTER, center.x, center.y, center.z, 2, .5, .5, .5, 0);
+            scheduleFollowupStrikes(player, center, d, 3.0f, 3.8);
         } else if (skill == 3) {
             Vec3 center = o.add(d.scale(8));
             for (int y = 0; y < 9; y++) {
@@ -168,6 +170,34 @@ public class DivineWeaponItem extends Item {
             player.teleportTo(end.x, end.y, end.z);
             burst(level, ParticleTypes.DRAGON_BREATH, end.x, end.y, end.z, 120, 1.2, 1, 1.2, .08);
             damage(level, player, end, 3.2, 8.0f);
+        }
+    }
+
+    /**
+     * Adds two delayed hit beats to basic and power skills. These waves deal real
+     * server-side damage as well as particles, so the follow-through is not cosmetic only.
+     */
+    private void scheduleFollowupStrikes(ServerPlayer player, Vec3 center, Vec3 direction,
+                                         float damagePerWave, double radius) {
+        net.minecraft.core.particles.SimpleParticleType particle = switch (beast) {
+            case AZURE_DRAGON -> ParticleTypes.ELECTRIC_SPARK;
+            case WHITE_TIGER -> ParticleTypes.CRIT;
+            case VERMILION_BIRD -> ParticleTypes.FLAME;
+            case BLACK_TORTOISE -> ParticleTypes.SNOWFLAKE;
+        };
+        for (int beat = 1; beat <= 2; beat++) {
+            final int stage = beat;
+            SkillSequenceManager.schedule(player, stage * 4, caster -> {
+                if (!(caster.level() instanceof ServerLevel impactLevel)) return;
+                Vec3 strikeCenter = center.add(direction.scale(stage * 0.55));
+                ring(impactLevel, strikeCenter, radius + stage * 0.25, particle, 36);
+                ring(impactLevel, strikeCenter, radius * 0.68, particle, 24);
+                burst(impactLevel, particle, strikeCenter.x, strikeCenter.y, strikeCenter.z,
+                        30, radius * 0.3, 0.35, radius * 0.3, 0.025);
+                damage(impactLevel, caster, strikeCenter, radius, damagePerWave);
+                impactLevel.playSound(null, caster.blockPosition(), soundFor(1),
+                        SoundSource.PLAYERS, 0.65f, 0.9f + stage * 0.12f);
+            });
         }
     }
 
@@ -202,6 +232,7 @@ public class DivineWeaponItem extends Item {
         Vec3 center = o.add(d.scale(skill == 1 ? 3 : skill == 2 ? 4 : 6));
         if (skill == 1) {
             tigerClaw(level, player, center, 2.7, 6.0f);
+            scheduleFollowupStrikes(player, center, d, 2.0f, 2.5);
         } else if (skill == 2) {
             for (int n = 0; n < 3; n++) {
                 Vec3 wave = center.add(d.scale(n * 1.1));
@@ -209,6 +240,7 @@ public class DivineWeaponItem extends Item {
                 damage(level, player, wave, 2.6, 5.0f);
             }
             burst(level, ParticleTypes.CLOUD, center.x, center.y, center.z, 150, 2, .5, 2, .12);
+            scheduleFollowupStrikes(player, center, d, 2.2f, 2.8);
         } else if (skill == 3) {
             for (int n = 0; n < 7; n++) {
                 double r = 2.0 + n * .72;
@@ -245,6 +277,7 @@ public class DivineWeaponItem extends Item {
                 burst(level, ParticleTypes.SOUL_FIRE_FLAME, p.x, p.y, p.z, 8, .2, .2, .2, .03);
                 damage(level, player, p, 1.15, 3.5f);
             }
+            scheduleFollowupStrikes(player, o.add(d.scale(4.0)), d, 1.5f, 1.5);
         } else if (skill == 2) {
             for (int n = 0; n < 5; n++) {
                 Vec3 p = center.add(0, n * .55, 0);
@@ -252,6 +285,7 @@ public class DivineWeaponItem extends Item {
                 burst(level, ParticleTypes.LAVA, p.x, p.y, p.z, 24, .8, .5, .8, .03);
             }
             damage(level, player, center, 5.0, 11.0f);
+            scheduleFollowupStrikes(player, center, d, 2.8f, 4.2);
         } else if (skill == 3) {
             for (int y = 0; y < 10; y++) {
                 double radius = 5.5 - y * .38;
@@ -283,6 +317,7 @@ public class DivineWeaponItem extends Item {
                     1.8 + n * .55, ParticleTypes.SNOWFLAKE, 56);
             burst(level, ParticleTypes.CLOUD, center.x, center.y, center.z, 180, 2, .6, 2, .08);
             damage(level, player, center, 4.8, 9.0f);
+            scheduleFollowupStrikes(player, center, d, 2.4f, 3.8);
         } else if (skill == 3) {
             Vec3 center = o.add(d.scale(5));
             for (int y = 0; y < 8; y++) {
