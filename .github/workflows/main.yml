@@ -18,11 +18,13 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Grant execute permission
-        run: chmod +x gradlew
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.8'
 
       - name: Build mod
-        run: ./gradlew build
+        run: gradle build
 
       - name: Upload JAR
         uses: actions/upload-artifact@v4
