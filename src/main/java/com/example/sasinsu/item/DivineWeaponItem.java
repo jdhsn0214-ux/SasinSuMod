@@ -49,21 +49,56 @@ public class DivineWeaponItem extends Item {
 
         player.getPersistentData().putLong(key, now + cooldownTicks(skill));
         InteractionHand hand = player.getMainHandItem() == stack ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
-        player.swing(hand, true);
-        Vec3 origin = player.position().add(0, 1.0, 0);
-        Vec3 look = player.getLookAngle().normalize();
 
-        switch (beast) {
-            case AZURE_DRAGON -> dragonSkill(level, player, origin, look, skill);
-            case WHITE_TIGER -> tigerSkill(level, player, origin, look, skill);
-            case VERMILION_BIRD -> phoenixSkill(level, player, origin, look, skill);
-            case BLACK_TORTOISE -> tortoiseSkill(level, player, origin, look, skill);
-        }
+        // A visible wind-up gives every skill a readable start before its hit window.
+        Vec3 windupOrigin = player.position().add(0, 0.15, 0);
+        ring(level, windupOrigin, skill == 3 ? 2.8 : 1.55, windupParticle(), skill == 3 ? 40 : 24);
+        burst(level, windupParticle(), player.getX(), player.getY() + 1.0, player.getZ(),
+                skill == 3 ? 36 : 14, .35, .55, .35, .025);
+        level.playSound(null, player.blockPosition(), SoundEvents.AMETHYST_BLOCK_CHIME,
+                SoundSource.PLAYERS, skill == 3 ? 1.5f : .8f, skill == 3 ? .55f : 1.15f);
 
-        level.playSound(null, player.blockPosition(), soundFor(skill),
-                SoundSource.PLAYERS, skill == 3 ? 2.4f : 1.5f,
-                skill == 3 ? 0.65f : 0.9f + level.random.nextFloat() * 0.2f);
-        if (stack.isDamageableItem()) stack.hurtAndBreak(1, player, p -> p.broadcastBreakEvent(hand));
+        SkillSequenceManager.schedule(player, windupTicks(skill), caster -> {
+            ItemStack currentStack = caster.getItemInHand(hand);
+            if (currentStack.getItem() != this) return;
+
+            ServerLevel impactLevel = (ServerLevel) caster.level();
+            caster.swing(hand, true);
+            Vec3 origin = caster.position().add(0, 1.0, 0);
+            Vec3 look = caster.getLookAngle().normalize();
+
+            switch (beast) {
+                case AZURE_DRAGON -> dragonSkill(impactLevel, caster, origin, look, skill);
+                case WHITE_TIGER -> tigerSkill(impactLevel, caster, origin, look, skill);
+                case VERMILION_BIRD -> phoenixSkill(impactLevel, caster, origin, look, skill);
+                case BLACK_TORTOISE -> tortoiseSkill(impactLevel, caster, origin, look, skill);
+            }
+
+            impactLevel.playSound(null, caster.blockPosition(), soundFor(skill),
+                    SoundSource.PLAYERS, skill == 3 ? 2.4f : 1.5f,
+                    skill == 3 ? 0.65f : 0.9f + impactLevel.random.nextFloat() * 0.2f);
+            if (currentStack.isDamageableItem()) {
+                currentStack.hurtAndBreak(1, caster, p -> p.broadcastBreakEvent(hand));
+            }
+        });
+    }
+
+    private int windupTicks(int skill) {
+        return switch (skill) {
+            case 1 -> 4;
+            case 2 -> 8;
+            case 3 -> 16;
+            default -> 3;
+        };
+    }
+
+    private net.minecraft.core.particles.SimpleParticleType windupParticle() {
+        return switch (beast) {
+            case AZURE_DRAGON -> ParticleTypes.ELECTRIC_SPARK;
+            case WHITE_TIGER -> ParticleTypes.CRIT;
+            case VERMILION_BIRD -> ParticleTypes.FLAME;
+            case BLACK_TORTOISE -> ParticleTypes.SNOWFLAKE;
+        };
     }
 
     private int cooldownTicks(int skill) {
