@@ -10,7 +10,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.lwjgl.glfw.GLFW;
 
-@Mod.EventBusSubscriber(modid = SasinSuMod.MODID, value = Dist.CLIENT)
+@Mod.EventBusSubscriber(modid = SasinSuMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public final class ClientSkillHandler {
     private static long lastSneakPress = 0L;
     private static long lastSpecialSent = 0L;
