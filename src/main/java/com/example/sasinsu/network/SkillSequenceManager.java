@@ -32,13 +32,19 @@ public final class SkillSequenceManager {
     public static void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END || ACTIONS.isEmpty()) return;
 
+        List<PendingAction> dueActions = new ArrayList<>();
         Iterator<PendingAction> iterator = ACTIONS.iterator();
         while (iterator.hasNext()) {
             PendingAction pending = iterator.next();
             pending.remainingTicks--;
-            if (pending.remainingTicks > 0) continue;
+            if (pending.remainingTicks <= 0) {
+                dueActions.add(pending);
+                iterator.remove();
+            }
+        }
 
-            iterator.remove();
+        // Execute after iteration: a skill may schedule its own recovery phase.
+        for (PendingAction pending : dueActions) {
             ServerPlayer player = event.getServer().getPlayerList().getPlayer(pending.playerId);
             if (player != null && player.isAlive()) {
                 pending.action.accept(player);
