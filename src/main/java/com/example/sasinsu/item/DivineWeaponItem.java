@@ -165,11 +165,11 @@ public class DivineWeaponItem extends Item {
             damage(level, player, o.add(d.scale(4)), 5.0, 12.0f);
             scheduleUltimateAftershocks(player, center);
         } else {
-            Vec3 end = o.add(d.scale(7));
-            burst(level, ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 1, player.getZ(), 180, 1.1, 1, 1.1, .2);
-            player.teleportTo(end.x, end.y, end.z);
-            burst(level, ParticleTypes.DRAGON_BREATH, end.x, end.y, end.z, 120, 1.2, 1, 1.2, .08);
-            damage(level, player, end, 3.2, 8.0f);
+            Vec3 start = player.position().add(0, 1.0, 0);
+            Vec3 end = dashPlayer(level, player, d, 7.0);
+            burst(level, ParticleTypes.ELECTRIC_SPARK, start.x, start.y, start.z, 180, 1.1, 1, 1.1, .2);
+            burst(level, ParticleTypes.DRAGON_BREATH, end.x, end.y + 1.0, end.z, 120, 1.2, 1, 1.2, .08);
+            damage(level, player, end.add(0, 1.0, 0), 3.2, 8.0f);
         }
     }
 
@@ -297,12 +297,29 @@ public class DivineWeaponItem extends Item {
             damage(level, player, center, 9.0, 25.0f);
             scheduleUltimateAftershocks(player, center);
         } else {
-            Vec3 end = o.add(d.scale(6));
-            player.teleportTo(end.x, end.y, end.z);
-            burst(level, ParticleTypes.FLAME, end.x, end.y, end.z, 180, 1.2, 1, 1.2, .1);
-            burst(level, ParticleTypes.SOUL_FIRE_FLAME, end.x, end.y, end.z, 70, .8, .8, .8, .06);
-            damage(level, player, end, 3.0, 8.0f);
+            Vec3 start = player.position().add(0, 1.0, 0);
+            Vec3 end = dashPlayer(level, player, d, 6.0);
+            burst(level, ParticleTypes.FLAME, start.x, start.y, start.z, 180, 1.2, 1, 1.2, .1);
+            burst(level, ParticleTypes.SOUL_FIRE_FLAME, end.x, end.y + 1.0, end.z, 180, 1.2, 1, 1.2, .1);
+            burst(level, ParticleTypes.SOUL_FIRE_FLAME, end.x, end.y + 1.0, end.z, 70, .8, .8, .8, .06);
+            damage(level, player, end.add(0, 1.0, 0), 3.0, 8.0f);
         }
+    }
+
+    /**
+     * Moves the player forward without placing their bounding box inside solid blocks.
+     * Shorter distances are tried when the full dash path is obstructed.
+     */
+    private Vec3 dashPlayer(ServerLevel level, ServerPlayer player, Vec3 direction, double distance) {
+        for (double step = distance; step >= 1.5; step -= 0.5) {
+            Vec3 offset = direction.scale(step);
+            Vec3 destination = player.position().add(offset);
+            if (level.noCollision(player, player.getBoundingBox().move(offset))) {
+                player.teleportTo(destination.x, destination.y, destination.z);
+                return destination;
+            }
+        }
+        return player.position();
     }
 
     private void tortoiseSkill(ServerLevel level, ServerPlayer player, Vec3 o, Vec3 d, int skill) {
