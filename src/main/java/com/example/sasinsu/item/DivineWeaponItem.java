@@ -1,5 +1,7 @@
 package com.example.sasinsu.item;
 
+import com.example.sasinsu.network.SkillSequenceManager;
+
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.network.chat.Component;
