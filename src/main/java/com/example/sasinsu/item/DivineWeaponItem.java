@@ -1,6 +1,7 @@
 package com.example.sasinsu.item;
 
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -89,7 +90,7 @@ public class DivineWeaponItem extends Item {
             for (int i = 1; i <= 12; i++) {
                 Vec3 p = o.add(d.scale(i * 0.75));
                 ring(level, p, 0.8 + i * 0.08, ParticleTypes.ELECTRIC_SPARK, 18);
-                level.sendParticles(ParticleTypes.DRAGON_BREATH, p.x, p.y, p.z, 10, .3, .3, .3, .02);
+                burst(level, ParticleTypes.DRAGON_BREATH, p.x, p.y, p.z, 10, .3, .3, .3, .02);
                 damage(level, player, p, 1.15, 4.5f);
             }
         } else if (skill == 2) {
@@ -100,7 +101,7 @@ public class DivineWeaponItem extends Item {
                 ring(level, center.add(0, wave * .28, 0), radius * .78, ParticleTypes.DRAGON_BREATH, 36);
             }
             damage(level, player, center, 4.8, 10.0f);
-            level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, center.x, center.y, center.z, 2, .5, .5, .5, 0);
+            burst(level, ParticleTypes.EXPLOSION_EMITTER, center.x, center.y, center.z, 2, .5, .5, .5, 0);
         } else if (skill == 3) {
             Vec3 center = o.add(d.scale(8));
             for (int y = 0; y < 9; y++) {
@@ -108,15 +109,15 @@ public class DivineWeaponItem extends Item {
                 ring(level, center.add(0, y * .48, 0), radius, ParticleTypes.ELECTRIC_SPARK, 72);
                 ring(level, center.add(0, y * .48, 0), radius * .72, ParticleTypes.SOUL_FIRE_FLAME, 54);
             }
-            level.sendParticles(ParticleTypes.DRAGON_BREATH, center.x, center.y + 2, center.z, 500, 3.8, 2.8, 3.8, .12);
-            level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, center.x, center.y, center.z, 8, 2, 1, 2, 0);
+            burst(level, ParticleTypes.DRAGON_BREATH, center.x, center.y + 2, center.z, 500, 3.8, 2.8, 3.8, .12);
+            burst(level, ParticleTypes.EXPLOSION_EMITTER, center.x, center.y, center.z, 8, 2, 1, 2, 0);
             damage(level, player, center, 8.0, 24.0f);
             damage(level, player, o.add(d.scale(4)), 5.0, 12.0f);
         } else {
             Vec3 end = o.add(d.scale(7));
-            level.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 1, player.getZ(), 180, 1.1, 1, 1.1, .2);
+            burst(level, ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 1, player.getZ(), 180, 1.1, 1, 1.1, .2);
             player.teleportTo(end.x, end.y, end.z);
-            level.sendParticles(ParticleTypes.DRAGON_BREATH, end.x, end.y, end.z, 120, 1.2, 1, 1.2, .08);
+            burst(level, ParticleTypes.DRAGON_BREATH, end.x, end.y, end.z, 120, 1.2, 1, 1.2, .08);
             damage(level, player, end, 3.2, 8.0f);
         }
     }
@@ -131,15 +132,15 @@ public class DivineWeaponItem extends Item {
                 ring(level, wave, 2.0 + n * .6, ParticleTypes.CRIT, 56);
                 damage(level, player, wave, 2.6, 5.0f);
             }
-            level.sendParticles(ParticleTypes.CLOUD, center.x, center.y, center.z, 150, 2, .5, 2, .12);
+            burst(level, ParticleTypes.CLOUD, center.x, center.y, center.z, 150, 2, .5, 2, .12);
         } else if (skill == 3) {
             for (int n = 0; n < 7; n++) {
                 double r = 2.0 + n * .72;
                 ring(level, center.add(0, n * .12, 0), r, ParticleTypes.SWEEP_ATTACK, 64);
                 ring(level, center.add(0, n * .12, 0), r * .82, ParticleTypes.CRIT, 64);
             }
-            level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, center.x, center.y, center.z, 12, 2.5, 1, 2.5, 0);
-            level.sendParticles(ParticleTypes.CLOUD, center.x, center.y, center.z, 450, 4, 1.2, 4, .2);
+            burst(level, ParticleTypes.EXPLOSION_EMITTER, center.x, center.y, center.z, 12, 2.5, 1, 2.5, 0);
+            burst(level, ParticleTypes.CLOUD, center.x, center.y, center.z, 450, 4, 1.2, 4, .2);
             damage(level, player, center, 9.0, 26.0f);
         } else {
             for (int n = 0; n < 4; n++) {
@@ -153,7 +154,7 @@ public class DivineWeaponItem extends Item {
         for (int claw = -1; claw <= 1; claw++) {
             Vec3 c = center.add(claw * .8, claw * .18, 0);
             ring(level, c, radius, ParticleTypes.SWEEP_ATTACK, 28);
-            level.sendParticles(ParticleTypes.CRIT, c.x, c.y, c.z, 28, .45, .35, .45, .12);
+            burst(level, ParticleTypes.CRIT, c.x, c.y, c.z, 28, .45, .35, .45, .12);
         }
         damage(level, player, center, radius, power);
     }
@@ -163,15 +164,15 @@ public class DivineWeaponItem extends Item {
         if (skill == 1) {
             for (int i = 1; i <= 7; i++) {
                 Vec3 p = o.add(d.scale(i));
-                level.sendParticles(ParticleTypes.FLAME, p.x, p.y, p.z, 28, .35, .35, .35, .06);
-                level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, p.x, p.y, p.z, 8, .2, .2, .2, .03);
+                burst(level, ParticleTypes.FLAME, p.x, p.y, p.z, 28, .35, .35, .35, .06);
+                burst(level, ParticleTypes.SOUL_FIRE_FLAME, p.x, p.y, p.z, 8, .2, .2, .2, .03);
                 damage(level, player, p, 1.15, 3.5f);
             }
         } else if (skill == 2) {
             for (int n = 0; n < 5; n++) {
                 Vec3 p = center.add(0, n * .55, 0);
                 ring(level, p, 1.5 + n * .55, ParticleTypes.FLAME, 48);
-                level.sendParticles(ParticleTypes.LAVA, p.x, p.y, p.z, 24, .8, .5, .8, .03);
+                burst(level, ParticleTypes.LAVA, p.x, p.y, p.z, 24, .8, .5, .8, .03);
             }
             damage(level, player, center, 5.0, 11.0f);
         } else if (skill == 3) {
@@ -180,14 +181,14 @@ public class DivineWeaponItem extends Item {
                 ring(level, center.add(0, y * .42, 0), radius, ParticleTypes.FLAME, 80);
                 ring(level, center.add(0, y * .42, 0), radius * .72, ParticleTypes.SOUL_FIRE_FLAME, 64);
             }
-            level.sendParticles(ParticleTypes.LAVA, center.x, center.y + 1, center.z, 180, 3.5, 2, 3.5, .04);
-            level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, center.x, center.y, center.z, 10, 2, 1, 2, 0);
+            burst(level, ParticleTypes.LAVA, center.x, center.y + 1, center.z, 180, 3.5, 2, 3.5, .04);
+            burst(level, ParticleTypes.EXPLOSION_EMITTER, center.x, center.y, center.z, 10, 2, 1, 2, 0);
             damage(level, player, center, 9.0, 25.0f);
         } else {
             Vec3 end = o.add(d.scale(6));
             player.teleportTo(end.x, end.y, end.z);
-            level.sendParticles(ParticleTypes.FLAME, end.x, end.y, end.z, 180, 1.2, 1, 1.2, .1);
-            level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, end.x, end.y, end.z, 70, .8, .8, .8, .06);
+            burst(level, ParticleTypes.FLAME, end.x, end.y, end.z, 180, 1.2, 1, 1.2, .1);
+            burst(level, ParticleTypes.SOUL_FIRE_FLAME, end.x, end.y, end.z, 70, .8, .8, .8, .06);
             damage(level, player, end, 3.0, 8.0f);
         }
     }
@@ -202,7 +203,7 @@ public class DivineWeaponItem extends Item {
             Vec3 center = o.add(d.scale(3.5));
             for (int n = 0; n < 5; n++) ring(level, center.add(0, n * .35, 0),
                     1.8 + n * .55, ParticleTypes.SNOWFLAKE, 56);
-            level.sendParticles(ParticleTypes.CLOUD, center.x, center.y, center.z, 180, 2, .6, 2, .08);
+            burst(level, ParticleTypes.CLOUD, center.x, center.y, center.z, 180, 2, .6, 2, .08);
             damage(level, player, center, 4.8, 9.0f);
         } else if (skill == 3) {
             Vec3 center = o.add(d.scale(5));
@@ -211,8 +212,8 @@ public class DivineWeaponItem extends Item {
                 ring(level, center.add(0, y * .38, 0), radius, ParticleTypes.SNOWFLAKE, 72);
                 ring(level, center.add(0, y * .38, 0), radius * .78, ParticleTypes.SOUL_FIRE_FLAME, 64);
             }
-            level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, center.x, center.y + 1, center.z, 220, 3, 2, 3, .14);
-            level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, center.x, center.y, center.z, 8, 2, 1, 2, 0);
+            burst(level, ParticleTypes.TOTEM_OF_UNDYING, center.x, center.y + 1, center.z, 220, 3, 2, 3, .14);
+            burst(level, ParticleTypes.EXPLOSION_EMITTER, center.x, center.y, center.z, 8, 2, 1, 2, 0);
             damage(level, player, center, 8.0, 20.0f);
             player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 240, 3));
             player.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 240, 3));
@@ -221,18 +222,28 @@ public class DivineWeaponItem extends Item {
             player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 70, 3));
             player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 70, 1));
             ring(level, o, 3.4, ParticleTypes.SNOWFLAKE, 96);
-            level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, o.x, o.y + .7, o.z, 100, 1.2, 1, 1.2, .12);
+            burst(level, ParticleTypes.TOTEM_OF_UNDYING, o.x, o.y + .7, o.z, 100, 1.2, 1, 1.2, .12);
             damage(level, player, o.add(d.scale(2)), 2.8, 5.0f);
         }
     }
 
     private void ring(ServerLevel level, Vec3 center, double radius,
                       net.minecraft.core.particles.SimpleParticleType particle, int count) {
+        count = Math.min(count, 48);
         for (int i = 0; i < count; i++) {
             double angle = Math.PI * 2.0 * i / count;
-            level.sendParticles(particle, center.x + Math.cos(angle) * radius, center.y + .08,
+            burst(level, particle, center.x + Math.cos(angle) * radius, center.y + .08,
                     center.z + Math.sin(angle) * radius, 1, 0, .02, 0, 0);
         }
+    }
+
+    /** Caps one particle burst so a single skill cannot flood nearby clients. */
+    private void burst(ServerLevel level, ParticleOptions particle, double x, double y, double z,
+                       int count, double xOffset, double yOffset, double zOffset, double speed) {
+        int budgetedCount = Math.max(0, Math.min(count, 96));
+        if (budgetedCount == 0) return;
+        level.sendParticles(particle, x, y, z, budgetedCount,
+                xOffset, yOffset, zOffset, speed);
     }
 
     private void damage(ServerLevel level, ServerPlayer player, Vec3 center, double radius, float amount) {
