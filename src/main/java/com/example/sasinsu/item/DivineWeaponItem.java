@@ -77,6 +77,17 @@ public class DivineWeaponItem extends Item {
             impactLevel.playSound(null, caster.blockPosition(), soundFor(skill),
                     SoundSource.PLAYERS, skill == 3 ? 2.4f : 1.5f,
                     skill == 3 ? 0.65f : 0.9f + impactLevel.random.nextFloat() * 0.2f);
+
+            // A short recovery pulse marks the end of the combo and keeps the impact readable.
+            Vec3 recoveryCenter = origin.add(look.scale(skill == 3 ? 6.0 : skill == 2 ? 3.5 : 2.2));
+            SkillSequenceManager.schedule(caster, skill == 3 ? 7 : 3, recovered -> {
+                if (!(recovered.level() instanceof ServerLevel recoveryLevel)) return;
+                ring(recoveryLevel, recoveryCenter, skill == 3 ? 3.4 : 1.8,
+                        windupParticle(), skill == 3 ? 36 : 20);
+                burst(recoveryLevel, windupParticle(), recoveryCenter.x, recoveryCenter.y,
+                        recoveryCenter.z, skill == 3 ? 28 : 12, .45, .35, .45, .018);
+            });
+
             if (currentStack.isDamageableItem()) {
                 currentStack.hurtAndBreak(1, caster, p -> p.broadcastBreakEvent(hand));
             }
