@@ -2,6 +2,8 @@ package com.example.sasinsu.network;
 
 import com.example.sasinsu.SasinSuMod;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -25,7 +27,7 @@ public final class SkillSequenceManager {
     private SkillSequenceManager() {}
 
     public static void schedule(ServerPlayer player, int delayTicks, Consumer<ServerPlayer> action) {
-        ACTIONS.add(new PendingAction(player.getUUID(), Math.max(1, delayTicks), action));
+        ACTIONS.add(new PendingAction(player.getUUID(), player.level().dimension(), Math.max(1, delayTicks), action));
     }
 
     @SubscribeEvent
@@ -46,7 +48,8 @@ public final class SkillSequenceManager {
         // Execute after iteration: a skill may schedule its own recovery phase.
         for (PendingAction pending : dueActions) {
             ServerPlayer player = event.getServer().getPlayerList().getPlayer(pending.playerId);
-            if (player != null && player.isAlive()) {
+            if (player != null && player.isAlive()
+                    && player.level().dimension().equals(pending.dimension)) {
                 pending.action.accept(player);
             }
         }
@@ -59,11 +62,14 @@ public final class SkillSequenceManager {
 
     private static final class PendingAction {
         private final UUID playerId;
+        private final ResourceKey<Level> dimension;
         private int remainingTicks;
         private final Consumer<ServerPlayer> action;
 
-        private PendingAction(UUID playerId, int remainingTicks, Consumer<ServerPlayer> action) {
+        private PendingAction(UUID playerId, ResourceKey<Level> dimension, int remainingTicks,
+                              Consumer<ServerPlayer> action) {
             this.playerId = playerId;
+            this.dimension = dimension;
             this.remainingTicks = remainingTicks;
             this.action = action;
         }
