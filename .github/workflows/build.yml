@@ -1,7 +1,7 @@
 name: Build Forge Mod
 on:
   push:
-    branches: [ main ]
+    branches: [ main, skill-remake-v2 ]
   workflow_dispatch:
 
 jobs:
