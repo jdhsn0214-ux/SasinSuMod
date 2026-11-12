@@ -70,7 +70,7 @@ public class DivineWeaponItem extends Item {
             Vec3 p = o.add(dir.scale(i * 0.75));
             ring(level, p, 1.0 + i * 0.12, ParticleTypes.ELECTRIC_SPARK, 18);
             level.sendParticles(ParticleTypes.DRAGON_BREATH, p.x, p.y, p.z, 12, .35, .35, .35, .02);
-            damage(level, player, p, 1.5, 8.0);
+            damage(level, player, p, 1.5, 8.0f);
         }
         level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, o.x, o.y, o.z, 90, 1.2, .8, 1.2, .08);
     }
@@ -86,7 +86,7 @@ public class DivineWeaponItem extends Item {
                 level.sendParticles(ParticleTypes.CRIT, p.x, p.y, p.z, 3, .08, .08, .08, .08);
             }
         }
-        damage(level, player, center, 4.5, 12.0);
+        damage(level, player, center, 4.5, 12.0f);
         level.sendParticles(ParticleTypes.CLOUD, center.x, center.y, center.z, 100, 1.8, .35, 1.8, .12);
     }
 
@@ -95,7 +95,7 @@ public class DivineWeaponItem extends Item {
             Vec3 p = o.add(dir.scale(1.5 + hit * 1.1));
             level.sendParticles(ParticleTypes.FLAME, p.x, p.y, p.z, 35, .55, .5, .55, .06);
             level.sendParticles(ParticleTypes.LAVA, p.x, p.y, p.z, 8, .3, .3, .3, .02);
-            damage(level, player, p, 1.3, 3.0);
+            damage(level, player, p, 1.3, 3.0f);
         }
         Vec3 end = o.add(dir.scale(6.5));
         level.sendParticles(ParticleTypes.EXPLOSION, end.x, end.y, end.z, 4, .5, .5, .5, 0);
