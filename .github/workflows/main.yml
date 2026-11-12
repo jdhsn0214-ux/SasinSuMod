@@ -1,7 +1,8 @@
-
 name: Build Minecraft Forge Mod
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -31,3 +32,4 @@ jobs:
         with:
           name: SasinSuMod-JAR
           path: build/libs/*.jar
+          if-no-files-found: error
