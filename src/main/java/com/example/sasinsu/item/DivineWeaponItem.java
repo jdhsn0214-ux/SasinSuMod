@@ -583,10 +583,20 @@ public class DivineWeaponItem extends Item {
      * Shorter distances are tried when the full dash path is obstructed.
      */
     private Vec3 dashPlayer(ServerLevel level, ServerPlayer player, Vec3 direction, double distance) {
+        // Checking only the destination can let a dash pass through a thin wall
+        // when the space on the far side is clear. Validate the whole path in
+        // half-block increments before moving the player.
         for (double step = distance; step >= 1.5; step -= 0.5) {
-            Vec3 offset = direction.scale(step);
-            Vec3 destination = player.position().add(offset);
-            if (level.noCollision(player, player.getBoundingBox().move(offset))) {
+            boolean pathClear = true;
+            for (double travelled = 0.5; travelled <= step; travelled += 0.5) {
+                Vec3 offset = direction.scale(travelled);
+                if (!level.noCollision(player, player.getBoundingBox().move(offset))) {
+                    pathClear = false;
+                    break;
+                }
+            }
+            if (pathClear) {
+                Vec3 destination = player.position().add(direction.scale(step));
                 player.teleportTo(destination.x, destination.y, destination.z);
                 return destination;
             }
