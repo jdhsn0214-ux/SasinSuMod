@@ -3,6 +3,7 @@ package com.example.sasinsu.item;
 import com.example.sasinsu.network.SkillSequenceManager;
 import com.example.sasinsu.network.TortoiseGuardHandler;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.network.chat.Component;
@@ -14,11 +15,14 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
@@ -208,6 +212,8 @@ public class DivineWeaponItem extends Item {
 
     private void dragonSkill(ServerLevel level, ServerPlayer player, Vec3 o, Vec3 d, int skill) {
         if (skill == 1) {
+            // One real vanilla lightning entity punctuates the forward lightning cut.
+            summonDragonLightning(level, o.add(d.scale(5.0)));
             for (int i = 1; i <= 12; i++) {
                 Vec3 p = o.add(d.scale(i * 0.75));
                 ring(level, p, 0.8 + i * 0.08, ParticleTypes.ELECTRIC_SPARK, 18);
@@ -217,6 +223,15 @@ public class DivineWeaponItem extends Item {
             scheduleWeaponFollowthrough(player, o.add(d.scale(5.0)), d, 1.5f, 1.35);
         } else if (skill == 2) {
             Vec3 center = o.add(d.scale(4));
+            // Three genuine lightning strikes land in sequence across the impact zone.
+            for (int strike = -1; strike <= 1; strike++) {
+                final int lane = strike;
+                SkillSequenceManager.schedule(player, (strike + 1) * 3, caster -> {
+                    if (!(caster.level() instanceof ServerLevel strikeLevel)) return;
+                    Vec3 side = new Vec3(-d.z, 0, d.x).scale(lane * 1.25);
+                    summonDragonLightning(strikeLevel, center.add(side));
+                });
+            }
             for (int wave = 0; wave < 5; wave++) {
                 double radius = 1.2 + wave * .65;
                 ring(level, center.add(0, wave * .28, 0), radius, ParticleTypes.ELECTRIC_SPARK, 48);
@@ -250,6 +265,7 @@ public class DivineWeaponItem extends Item {
                     burst(dashLevel, ParticleTypes.DRAGON_BREATH,
                             end.x, end.y + 1.0, end.z, 42, .7, .65, .7, .055);
                     damage(dashLevel, caster, end.add(0, .8, 0), 2.15, 3.5f);
+                    summonDragonLightning(dashLevel, end);
                     dashLevel.playSound(null, caster.blockPosition(), SoundEvents.TRIDENT_THUNDER,
                             SoundSource.PLAYERS, .55f, 1.25f + stage * .12f);
                 });
@@ -391,6 +407,7 @@ public class DivineWeaponItem extends Item {
                                             boltPoint.x, boltPoint.y, boltPoint.z,
                                             14, .13, .24, .13, .045);
                                     if (height == 0) {
+                                        summonDragonLightning(boltLevel, strike);
                                         ring(boltLevel, strike, .95 + stage * .3,
                                                 ParticleTypes.ELECTRIC_SPARK, 40);
                                         burst(boltLevel, ParticleTypes.EXPLOSION,
@@ -449,6 +466,26 @@ public class DivineWeaponItem extends Item {
                 }
             });
         }
+    }
+
+
+    /**
+     * Spawns a real vanilla lightning bolt for the Azure Dragon's signature.
+     * Visual-only keeps vanilla fire and incidental lightning damage disabled;
+     * each skill retains its own explicit, balanced damage logic.
+     */
+    private void summonDragonLightning(ServerLevel level, Vec3 target) {
+        BlockPos targetPos = BlockPos.containing(target);
+        int x = targetPos.getX();
+        int z = targetPos.getZ();
+        int groundY = level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z);
+        LightningBolt bolt = EntityType.LIGHTNING_BOLT.create(level);
+        if (bolt == null) return;
+        bolt.setVisualOnly(true);
+        bolt.moveTo(x + 0.5, groundY, z + 0.5);
+        level.addFreshEntity(bolt);
+        burst(level, ParticleTypes.ELECTRIC_SPARK, x + 0.5, groundY + 0.2, z + 0.5,
+                28, .45, .25, .45, .09);
     }
 
     private void tigerSkill(ServerLevel level, ServerPlayer player, Vec3 o, Vec3 d, int skill) {
