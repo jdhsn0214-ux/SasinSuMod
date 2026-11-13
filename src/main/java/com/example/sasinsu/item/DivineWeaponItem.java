@@ -533,12 +533,48 @@ public class DivineWeaponItem extends Item {
             damage(level, player, center, 9.0, 25.0f);
             scheduleUltimateAftershocks(player, center);
         } else {
-            Vec3 start = player.position().add(0, 1.0, 0);
-            Vec3 end = dashPlayer(level, player, d, 6.0);
-            burst(level, ParticleTypes.FLAME, start.x, start.y, start.z, 180, 1.2, 1, 1.2, .1);
-            burst(level, ParticleTypes.SOUL_FIRE_FLAME, end.x, end.y + 1.0, end.z, 180, 1.2, 1, 1.2, .1);
-            burst(level, ParticleTypes.SOUL_FIRE_FLAME, end.x, end.y + 1.0, end.z, 70, .8, .8, .8, .06);
-            damage(level, player, end.add(0, 1.0, 0), 3.0, 8.0f);
+            // Cinderstep: three spaced dashes leave a burning trail and finish with a heavier cross-cut.
+            // The 10-tick gaps also give Minecraft's hurt cooldown time to expire between hits.
+            for (int beat = 1; beat <= 3; beat++) {
+                final int stage = beat;
+                SkillSequenceManager.schedule(player, 2 + (stage - 1) * 10, caster -> {
+                    if (!(caster.level() instanceof ServerLevel dashLevel)) return;
+                    Vec3 start = caster.position().add(0, 1.0, 0);
+                    Vec3 dashDirection = caster.getLookAngle().normalize();
+                    Vec3 end = dashPlayer(dashLevel, caster, dashDirection, stage == 3 ? 2.8 : 2.2);
+
+                    // A short, restrained trail reads as a moving afterimage without a giant particle dump.
+                    for (int segment = 0; segment <= 4; segment++) {
+                        Vec3 trail = start.lerp(end, segment / 4.0);
+                        burst(dashLevel, ParticleTypes.FLAME, trail.x, trail.y, trail.z,
+                                stage == 3 ? 12 : 8, .12, .2, .12, .035);
+                    }
+                    burst(dashLevel, ParticleTypes.SOUL_FIRE_FLAME,
+                            start.x, start.y + .15, start.z, 28, .42, .55, .42, .055);
+                    burst(dashLevel, ParticleTypes.SOUL_FIRE_FLAME,
+                            end.x, end.y + .85, end.z, stage == 3 ? 72 : 48,
+                            .72, .82, .72, .075);
+                    if (stage == 3) {
+                        burst(dashLevel, ParticleTypes.LAVA, end.x, end.y + .6, end.z,
+                                18, .45, .35, .45, .025);
+                    }
+
+                    AABB strikeArea = new AABB(end, end).inflate(stage == 3 ? 2.4 : 1.85, 1.5, stage == 3 ? 2.4 : 1.85);
+                    float strikeDamage = stage == 3 ? 7.0f : 4.0f;
+                    for (LivingEntity target : dashLevel.getEntitiesOfClass(LivingEntity.class,
+                            strikeArea, entity -> entity != caster && entity.isAlive()
+                                    && !entity.isAlliedTo(caster))) {
+                        target.hurt(dashLevel.damageSources().playerAttack(caster), strikeDamage);
+                        target.setSecondsOnFire(stage == 3 ? 4 : 2);
+                        target.push(dashDirection.x * .48, stage == 3 ? .3 : .18,
+                                dashDirection.z * .48);
+                    }
+
+                    dashLevel.playSound(null, caster.blockPosition(), SoundEvents.FIRECHARGE_USE,
+                            SoundSource.PLAYERS, stage == 3 ? 1.25f : .8f,
+                            .78f + stage * .16f);
+                });
+            }
         }
     }
 
