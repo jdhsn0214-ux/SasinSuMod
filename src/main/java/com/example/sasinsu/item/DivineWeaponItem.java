@@ -238,11 +238,22 @@ public class DivineWeaponItem extends Item {
             damage(level, player, o.add(d.scale(4)), 5.0, 12.0f);
             scheduleUltimateAftershocks(player, center);
         } else {
-            Vec3 start = player.position().add(0, 1.0, 0);
-            Vec3 end = dashPlayer(level, player, d, 7.0);
-            burst(level, ParticleTypes.ELECTRIC_SPARK, start.x, start.y, start.z, 180, 1.1, 1, 1.1, .2);
-            burst(level, ParticleTypes.DRAGON_BREATH, end.x, end.y + 1.0, end.z, 120, 1.2, 1, 1.2, .08);
-            damage(level, player, end.add(0, 1.0, 0), 3.2, 8.0f);
+            // Cloudstep: three short lightning blinks form a chained repositioning attack.
+            for (int beat = 1; beat <= 3; beat++) {
+                final int stage = beat;
+                SkillSequenceManager.schedule(player, stage * 2, caster -> {
+                    if (!(caster.level() instanceof ServerLevel dashLevel)) return;
+                    Vec3 start = caster.position().add(0, 1.0, 0);
+                    Vec3 end = dashPlayer(dashLevel, caster, d, 2.35);
+                    burst(dashLevel, ParticleTypes.ELECTRIC_SPARK,
+                            start.x, start.y, start.z, 54, .65, .7, .65, .12);
+                    burst(dashLevel, ParticleTypes.DRAGON_BREATH,
+                            end.x, end.y + 1.0, end.z, 42, .7, .65, .7, .055);
+                    damage(dashLevel, caster, end.add(0, .8, 0), 2.15, 3.5f);
+                    dashLevel.playSound(null, caster.blockPosition(), SoundEvents.TRIDENT_THUNDER,
+                            SoundSource.PLAYERS, .55f, 1.25f + stage * .12f);
+                });
+            }
         }
     }
 
@@ -464,10 +475,23 @@ public class DivineWeaponItem extends Item {
             damage(level, player, center, 9.0, 26.0f);
             scheduleUltimateAftershocks(player, center);
         } else {
-            for (int n = 0; n < 4; n++) {
-                Vec3 slash = o.add(d.scale(1.5 + n * 1.2));
-                tigerClaw(level, player, slash, 2.0, 3.5f);
+            // King's Roar: a close-range shockwave that scatters and weakens surrounding enemies.
+            Vec3 roarCenter = player.position().add(0, .8, 0);
+            ring(level, roarCenter, 2.2, ParticleTypes.SWEEP_ATTACK, 40);
+            ring(level, roarCenter, 4.2, ParticleTypes.CLOUD, 48);
+            burst(level, ParticleTypes.CRIT, roarCenter.x, roarCenter.y, roarCenter.z,
+                    72, 2.0, .8, 2.0, .16);
+            AABB roarArea = player.getBoundingBox().inflate(5.0, 2.5, 5.0);
+            for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, roarArea,
+                    entity -> entity != player && entity.isAlive() && !entity.isAlliedTo(player))) {
+                target.hurt(level.damageSources().playerAttack(player), 5.0f);
+                target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 50, 0));
+                target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 30, 1));
+                Vec3 away = target.position().subtract(player.position()).normalize().scale(1.55);
+                target.push(away.x, .42, away.z);
             }
+            level.playSound(null, player.blockPosition(), SoundEvents.RAVAGER_ROAR,
+                    SoundSource.PLAYERS, 1.25f, .75f);
         }
     }
 
