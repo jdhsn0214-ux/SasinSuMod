@@ -213,7 +213,7 @@ public class DivineWeaponItem extends Item {
                 burst(level, ParticleTypes.DRAGON_BREATH, p.x, p.y, p.z, 10, .3, .3, .3, .02);
                 damage(level, player, p, 1.15, 4.5f);
             }
-            scheduleFollowupStrikes(player, o.add(d.scale(5.0)), d, 1.5f, 1.35);
+            scheduleWeaponFollowthrough(player, o.add(d.scale(5.0)), d, 1.5f, 1.35);
         } else if (skill == 2) {
             Vec3 center = o.add(d.scale(4));
             for (int wave = 0; wave < 5; wave++) {
@@ -223,7 +223,7 @@ public class DivineWeaponItem extends Item {
             }
             damage(level, player, center, 4.8, 10.0f);
             burst(level, ParticleTypes.EXPLOSION_EMITTER, center.x, center.y, center.z, 2, .5, .5, .5, 0);
-            scheduleFollowupStrikes(player, center, d, 3.0f, 3.8);
+            scheduleWeaponFollowthrough(player, center, d, 3.0f, 3.8);
         } else if (skill == 3) {
             Vec3 center = o.add(d.scale(8));
             for (int y = 0; y < 9; y++) {
@@ -246,30 +246,110 @@ public class DivineWeaponItem extends Item {
     }
 
     /**
-     * Adds two delayed hit beats to basic and power skills. These waves deal real
-     * server-side damage as well as particles, so the follow-through is not cosmetic only.
+     * Weapon-specific follow-through. These are intentionally different combat
+     * beats rather than one shared ring-and-burst routine.
      */
-    private void scheduleFollowupStrikes(ServerPlayer player, Vec3 center, Vec3 direction,
-                                         float damagePerWave, double radius) {
-        net.minecraft.core.particles.SimpleParticleType particle = switch (beast) {
-            case AZURE_DRAGON -> ParticleTypes.ELECTRIC_SPARK;
-            case WHITE_TIGER -> ParticleTypes.CRIT;
-            case VERMILION_BIRD -> ParticleTypes.FLAME;
-            case BLACK_TORTOISE -> ParticleTypes.SNOWFLAKE;
-        };
-        for (int beat = 1; beat <= 2; beat++) {
-            final int stage = beat;
-            SkillSequenceManager.schedule(player, stage * 4, caster -> {
-                if (!(caster.level() instanceof ServerLevel impactLevel)) return;
-                Vec3 strikeCenter = center.add(direction.scale(stage * 0.55));
-                ring(impactLevel, strikeCenter, radius + stage * 0.25, particle, 36);
-                ring(impactLevel, strikeCenter, radius * 0.68, particle, 24);
-                burst(impactLevel, particle, strikeCenter.x, strikeCenter.y, strikeCenter.z,
-                        30, radius * 0.3, 0.35, radius * 0.3, 0.025);
-                damage(impactLevel, caster, strikeCenter, radius, damagePerWave);
-                impactLevel.playSound(null, caster.blockPosition(), soundFor(1),
-                        SoundSource.PLAYERS, 0.65f, 0.9f + stage * 0.12f);
-            });
+    private void scheduleWeaponFollowthrough(ServerPlayer player, Vec3 center, Vec3 direction,
+                                             float damagePerWave, double radius) {
+        switch (beast) {
+            case AZURE_DRAGON -> {
+                // Dragon: two advancing lightning cuts travel down the sword's line.
+                for (int beat = 1; beat <= 2; beat++) {
+                    final int stage = beat;
+                    SkillSequenceManager.schedule(player, stage * 4, caster -> {
+                        if (!(caster.level() instanceof ServerLevel impactLevel)) return;
+                        Vec3 start = center.add(direction.scale(stage * 1.1));
+                        for (int segment = 0; segment < 5; segment++) {
+                            Vec3 point = start.add(direction.scale(segment * .42))
+                                    .add(0, Math.sin(segment * 1.3 + stage) * .35, 0);
+                            burst(impactLevel, ParticleTypes.ELECTRIC_SPARK,
+                                    point.x, point.y, point.z, 7, .08, .16, .08, .025);
+                        }
+                        damage(impactLevel, caster, start.add(direction.scale(.8)), radius * .8,
+                                damagePerWave);
+                        impactLevel.playSound(null, caster.blockPosition(), SoundEvents.TRIDENT_THUNDER,
+                                SoundSource.PLAYERS, .55f, 1.15f + stage * .12f);
+                    });
+                }
+            }
+            case WHITE_TIGER -> {
+                // Tiger: acquire a target in the forward cone, rush it, then perform a heavy cleave.
+                SkillSequenceManager.schedule(player, 5, caster -> {
+                    if (!(caster.level() instanceof ServerLevel impactLevel)) return;
+                    Vec3 facing = caster.getLookAngle().normalize();
+                    LivingEntity chosen = null;
+                    double nearest = 9.0 * 9.0;
+                    AABB search = caster.getBoundingBox().inflate(9.0, 4.0, 9.0);
+                    for (LivingEntity candidate : impactLevel.getEntitiesOfClass(LivingEntity.class,
+                            search, entity -> entity != caster && entity.isAlive()
+                                    && !entity.isAlliedTo(caster))) {
+                        Vec3 offset = candidate.position().subtract(caster.position());
+                        double distance = offset.lengthSqr();
+                        if (distance < nearest && distance > .1
+                                && facing.dot(offset.normalize()) > .25) {
+                            nearest = distance;
+                            chosen = candidate;
+                        }
+                    }
+                    if (chosen == null) {
+                        tigerClaw(impactLevel, caster, center.add(direction.scale(1.0)),
+                                radius * .85, damagePerWave);
+                        return;
+                    }
+                    Vec3 targetPoint = chosen.position();
+                    Vec3 rush = targetPoint.subtract(caster.position()).normalize();
+                    Vec3 end = dashPlayer(impactLevel, caster, rush, Math.min(3.5, Math.sqrt(nearest) - 1.2));
+                    burst(impactLevel, ParticleTypes.CLOUD, end.x, end.y + .1, end.z,
+                            28, .55, .18, .55, .08);
+                    tigerClaw(impactLevel, caster, chosen.position(), radius, damagePerWave + 1.5f);
+                    impactLevel.playSound(null, chosen.blockPosition(), SoundEvents.AXE_STRIP,
+                            SoundSource.PLAYERS, .8f, .7f);
+                });
+            }
+            case VERMILION_BIRD -> {
+                // Phoenix: rising three-hit aerial spiral; victims are lifted and scorched.
+                for (int beat = 1; beat <= 3; beat++) {
+                    final int stage = beat;
+                    SkillSequenceManager.schedule(player, stage * 3, caster -> {
+                        if (!(caster.level() instanceof ServerLevel impactLevel)) return;
+                        double angle = stage * Math.PI * .72;
+                        Vec3 strike = center.add(Math.cos(angle) * radius * .45,
+                                stage * .72, Math.sin(angle) * radius * .45);
+                        ring(impactLevel, strike, .85 + stage * .28, ParticleTypes.FLAME, 28);
+                        burst(impactLevel, ParticleTypes.SOUL_FIRE_FLAME,
+                                strike.x, strike.y, strike.z, 18, .28, .32, .28, .035);
+                        AABB area = new AABB(strike, strike).inflate(radius * .65, 1.0, radius * .65);
+                        for (LivingEntity target : impactLevel.getEntitiesOfClass(LivingEntity.class,
+                                area, entity -> entity != caster && entity.isAlive()
+                                        && !entity.isAlliedTo(caster))) {
+                            target.hurt(impactLevel.damageSources().playerAttack(caster), damagePerWave);
+                            target.setSecondsOnFire(2);
+                            target.push(0, .28 + stage * .04, 0);
+                        }
+                    });
+                }
+            }
+            case BLACK_TORTOISE -> {
+                // Tortoise: a delayed freezing counter-pulse, followed by a brief guard refresh.
+                SkillSequenceManager.schedule(player, 6, caster -> {
+                    if (!(caster.level() instanceof ServerLevel impactLevel)) return;
+                    Vec3 pulse = center.add(0, -.25, 0);
+                    ring(impactLevel, pulse, radius + 1.0, ParticleTypes.SNOWFLAKE, 40);
+                    ring(impactLevel, pulse.add(0, .55, 0), radius * .6,
+                            ParticleTypes.SOUL_FIRE_FLAME, 28);
+                    AABB area = new AABB(pulse, pulse).inflate(radius + .5, 1.5, radius + .5);
+                    for (LivingEntity target : impactLevel.getEntitiesOfClass(LivingEntity.class,
+                            area, entity -> entity != caster && entity.isAlive()
+                                    && !entity.isAlliedTo(caster))) {
+                        target.hurt(impactLevel.damageSources().playerAttack(caster), damagePerWave);
+                        target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 50, 1));
+                        target.push(0, .08, 0);
+                    }
+                    caster.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 30, 1));
+                    impactLevel.playSound(null, caster.blockPosition(), SoundEvents.SHIELD_BLOCK,
+                            SoundSource.PLAYERS, .9f, .65f);
+                });
+            }
         }
     }
 
@@ -349,7 +429,7 @@ public class DivineWeaponItem extends Item {
         Vec3 center = o.add(d.scale(skill == 1 ? 3 : skill == 2 ? 4 : 6));
         if (skill == 1) {
             tigerClaw(level, player, center, 2.7, 6.0f);
-            scheduleFollowupStrikes(player, center, d, 2.0f, 2.5);
+            scheduleWeaponFollowthrough(player, center, d, 2.0f, 2.5);
         } else if (skill == 2) {
             for (int n = 0; n < 3; n++) {
                 Vec3 wave = center.add(d.scale(n * 1.1));
@@ -357,7 +437,7 @@ public class DivineWeaponItem extends Item {
                 damage(level, player, wave, 2.6, 5.0f);
             }
             burst(level, ParticleTypes.CLOUD, center.x, center.y, center.z, 150, 2, .5, 2, .12);
-            scheduleFollowupStrikes(player, center, d, 2.2f, 2.8);
+            scheduleWeaponFollowthrough(player, center, d, 2.2f, 2.8);
         } else if (skill == 3) {
             for (int n = 0; n < 7; n++) {
                 double r = 2.0 + n * .72;
@@ -394,7 +474,7 @@ public class DivineWeaponItem extends Item {
                 burst(level, ParticleTypes.SOUL_FIRE_FLAME, p.x, p.y, p.z, 8, .2, .2, .2, .03);
                 damage(level, player, p, 1.15, 3.5f);
             }
-            scheduleFollowupStrikes(player, o.add(d.scale(4.0)), d, 1.5f, 1.5);
+            scheduleWeaponFollowthrough(player, o.add(d.scale(4.0)), d, 1.5f, 1.5);
         } else if (skill == 2) {
             for (int n = 0; n < 5; n++) {
                 Vec3 p = center.add(0, n * .55, 0);
@@ -402,7 +482,7 @@ public class DivineWeaponItem extends Item {
                 burst(level, ParticleTypes.LAVA, p.x, p.y, p.z, 24, .8, .5, .8, .03);
             }
             damage(level, player, center, 5.0, 11.0f);
-            scheduleFollowupStrikes(player, center, d, 2.8f, 4.2);
+            scheduleWeaponFollowthrough(player, center, d, 2.8f, 4.2);
         } else if (skill == 3) {
             for (int y = 0; y < 10; y++) {
                 double radius = 5.5 - y * .38;
@@ -451,7 +531,7 @@ public class DivineWeaponItem extends Item {
                     1.8 + n * .55, ParticleTypes.SNOWFLAKE, 56);
             burst(level, ParticleTypes.CLOUD, center.x, center.y, center.z, 180, 2, .6, 2, .08);
             damage(level, player, center, 4.8, 9.0f);
-            scheduleFollowupStrikes(player, center, d, 2.4f, 3.8);
+            scheduleWeaponFollowthrough(player, center, d, 2.4f, 3.8);
         } else if (skill == 3) {
             Vec3 center = o.add(d.scale(5));
             for (int y = 0; y < 8; y++) {
