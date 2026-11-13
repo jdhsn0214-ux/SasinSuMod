@@ -368,16 +368,29 @@ public class DivineWeaponItem extends Item {
                 double radius = 2.0 + stage * 1.25;
                 switch (beast) {
                     case AZURE_DRAGON -> {
-                        // Three parallel bolts descend into the center in sequence.
+                        // Three lightning lanes descend visibly, segment by segment, then strike the ground.
                         for (int lane = -1; lane <= 1; lane++) {
                             Vec3 strike = center.add(lane * 1.15, 0, stage * .35);
-                            for (int y = 0; y < 5; y++) {
-                                Vec3 segment = strike.add(0, y * .62, 0);
-                                burst(impactLevel, ParticleTypes.ELECTRIC_SPARK,
-                                        segment.x, segment.y, segment.z, 10, .12, .2, .12, .04);
+                            for (int segment = 0; segment < 5; segment++) {
+                                final int height = segment;
+                                SkillSequenceManager.schedule(caster, 1 + (4 - height), boltCaster -> {
+                                    if (!(boltCaster.level() instanceof ServerLevel boltLevel)) return;
+                                    Vec3 boltPoint = strike.add(0, height * .72, 0);
+                                    burst(boltLevel, ParticleTypes.ELECTRIC_SPARK,
+                                            boltPoint.x, boltPoint.y, boltPoint.z,
+                                            14, .13, .24, .13, .045);
+                                    if (height == 0) {
+                                        ring(boltLevel, strike, .95 + stage * .3,
+                                                ParticleTypes.ELECTRIC_SPARK, 40);
+                                        burst(boltLevel, ParticleTypes.EXPLOSION,
+                                                strike.x, strike.y, strike.z, 2, .35, .18, .35, .01);
+                                        damage(boltLevel, boltCaster, strike, 1.35, 3.5f);
+                                        boltLevel.playSound(null, boltCaster.blockPosition(),
+                                                SoundEvents.TRIDENT_THUNDER, SoundSource.PLAYERS,
+                                                .65f, 1.0f + stage * .08f);
+                                    }
+                                });
                             }
-                            ring(impactLevel, strike, .8 + stage * .35,
-                                    ParticleTypes.ELECTRIC_SPARK, 36);
                         }
                         burst(impactLevel, ParticleTypes.DRAGON_BREATH, center.x, center.y,
                                 center.z, 42, radius * .35, .5, radius * .35, .035);
