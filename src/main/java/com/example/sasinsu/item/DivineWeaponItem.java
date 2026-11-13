@@ -1,6 +1,7 @@
 package com.example.sasinsu.item;
 
 import com.example.sasinsu.network.SkillSequenceManager;
+import com.example.sasinsu.network.TortoiseGuardHandler;
 
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.particles.ParticleOptions;
@@ -298,7 +299,8 @@ public class DivineWeaponItem extends Item {
                     }
                     Vec3 targetPoint = chosen.position();
                     Vec3 rush = targetPoint.subtract(caster.position()).normalize();
-                    Vec3 end = dashPlayer(impactLevel, caster, rush, Math.min(3.5, Math.sqrt(nearest) - 1.2));
+                    double rushDistance = Math.max(1.5, Math.min(3.5, Math.sqrt(nearest) - 1.2));
+                    Vec3 end = dashPlayer(impactLevel, caster, rush, rushDistance);
                     burst(impactLevel, ParticleTypes.CLOUD, end.x, end.y + .1, end.z,
                             28, .55, .18, .55, .08);
                     tigerClaw(impactLevel, caster, chosen.position(), radius, damagePerWave + 1.5f);
@@ -547,11 +549,16 @@ public class DivineWeaponItem extends Item {
             player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 160, 2));
             scheduleUltimateAftershocks(player, center);
         } else {
-            player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 70, 3));
-            player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 70, 1));
-            ring(level, o, 3.4, ParticleTypes.SNOWFLAKE, 96);
-            burst(level, ParticleTypes.TOTEM_OF_UNDYING, o.x, o.y + .7, o.z, 100, 1.2, 1, 1.2, .12);
-            damage(level, player, o.add(d.scale(2)), 2.8, 5.0f);
+            // Immutable Counter: enter a real guard stance instead of performing another generic AoE.
+            player.getPersistentData().putLong(TortoiseGuardHandler.GUARD_UNTIL,
+                    level.getGameTime() + 70L);
+            player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 12, 1));
+            ring(level, o, 2.6, ParticleTypes.SNOWFLAKE, 48);
+            ring(level, o.add(0, .75, 0), 2.0, ParticleTypes.ENCHANT, 36);
+            burst(level, ParticleTypes.TOTEM_OF_UNDYING, o.x, o.y + .7, o.z,
+                    48, .75, .9, .75, .08);
+            level.playSound(null, player.blockPosition(), SoundEvents.SHIELD_BLOCK,
+                    SoundSource.PLAYERS, 1.15f, .55f);
         }
     }
 
