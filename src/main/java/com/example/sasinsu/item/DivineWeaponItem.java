@@ -273,28 +273,73 @@ public class DivineWeaponItem extends Item {
         }
     }
 
-    /** Three delayed shockwaves turn each ultimate into a readable multi-stage finisher. */
+    /**
+     * Each beast resolves its ultimate with a different three-beat signature:
+     * dragon = descending lightning lanes, tiger = converging claw impacts,
+     * phoenix = rising expanding fire, tortoise = layered defensive pulses.
+     */
     private void scheduleUltimateAftershocks(ServerPlayer player, Vec3 center) {
         for (int phase = 1; phase <= 3; phase++) {
             final int stage = phase;
             SkillSequenceManager.schedule(player, phase * 4, caster -> {
                 if (!(caster.level() instanceof ServerLevel impactLevel)) return;
-                double radius = 2.6 + stage * 1.35;
-                net.minecraft.core.particles.SimpleParticleType particle = switch (beast) {
-                    case AZURE_DRAGON -> ParticleTypes.ELECTRIC_SPARK;
-                    case WHITE_TIGER -> ParticleTypes.CRIT;
-                    case VERMILION_BIRD -> ParticleTypes.FLAME;
-                    case BLACK_TORTOISE -> ParticleTypes.SNOWFLAKE;
-                };
-                Vec3 waveCenter = center.add(0, stage * 0.22, 0);
-                ring(impactLevel, waveCenter, radius, particle, 48);
-                ring(impactLevel, waveCenter, radius * 0.72,
-                        beast == BEAST.VERMILION_BIRD ? ParticleTypes.SOUL_FIRE_FLAME : particle, 36);
-                burst(impactLevel, particle, waveCenter.x, waveCenter.y, waveCenter.z,
-                        48, radius * 0.28, 0.45, radius * 0.28, 0.035);
-                if (stage == 3) {
-                    burst(impactLevel, ParticleTypes.EXPLOSION, waveCenter.x, waveCenter.y,
-                            waveCenter.z, 5, 1.8, 0.8, 1.8, 0.02);
+                double radius = 2.0 + stage * 1.25;
+                switch (beast) {
+                    case AZURE_DRAGON -> {
+                        // Three parallel bolts descend into the center in sequence.
+                        for (int lane = -1; lane <= 1; lane++) {
+                            Vec3 strike = center.add(lane * 1.15, 0, stage * .35);
+                            for (int y = 0; y < 5; y++) {
+                                Vec3 segment = strike.add(0, y * .62, 0);
+                                burst(impactLevel, ParticleTypes.ELECTRIC_SPARK,
+                                        segment.x, segment.y, segment.z, 10, .12, .2, .12, .04);
+                            }
+                            ring(impactLevel, strike, .8 + stage * .35,
+                                    ParticleTypes.ELECTRIC_SPARK, 36);
+                        }
+                        burst(impactLevel, ParticleTypes.DRAGON_BREATH, center.x, center.y,
+                                center.z, 42, radius * .35, .5, radius * .35, .035);
+                    }
+                    case WHITE_TIGER -> {
+                        // Four sweeping claw arcs collapse into one heavy central strike.
+                        for (int claw = 0; claw < 4; claw++) {
+                            double angle = Math.PI * 2 * claw / 4.0 + stage * .18;
+                            Vec3 slash = center.add(Math.cos(angle) * radius,
+                                    .15 * stage, Math.sin(angle) * radius);
+                            ring(impactLevel, slash, 1.15 + stage * .18,
+                                    ParticleTypes.SWEEP_ATTACK, 28);
+                            burst(impactLevel, ParticleTypes.CRIT, slash.x, slash.y,
+                                    slash.z, 12, .22, .22, .22, .1);
+                        }
+                        burst(impactLevel, ParticleTypes.CLOUD, center.x, center.y,
+                                center.z, 34, radius * .3, .22, radius * .3, .1);
+                    }
+                    case VERMILION_BIRD -> {
+                        // Each beat rises higher while the fiery radius expands.
+                        Vec3 rising = center.add(0, stage * .9, 0);
+                        ring(impactLevel, rising, radius, ParticleTypes.FLAME, 48);
+                        ring(impactLevel, rising.add(0, .35, 0), radius * .68,
+                                ParticleTypes.SOUL_FIRE_FLAME, 36);
+                        burst(impactLevel, ParticleTypes.LAVA, rising.x, rising.y,
+                                rising.z, 26, radius * .22, .25, radius * .22, .025);
+                    }
+                    case BLACK_TORTOISE -> {
+                        // Interlocking shell layers pulse outward and reinforce the wielder.
+                        Vec3 shell = center.add(0, stage * .25, 0);
+                        ring(impactLevel, shell, radius, ParticleTypes.SNOWFLAKE, 48);
+                        ring(impactLevel, shell.add(0, .7, 0), radius * .78,
+                                ParticleTypes.SOUL_FIRE_FLAME, 40);
+                        ring(impactLevel, shell.add(0, 1.35, 0), radius * .52,
+                                ParticleTypes.ENCHANT, 32);
+                        if (stage == 3) {
+                            caster.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 60, 1));
+                            caster.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 80, 1));
+                        }
+                    }
+                }
+                if (stage == 3 && beast != BEAST.BLACK_TORTOISE) {
+                    burst(impactLevel, ParticleTypes.EXPLOSION, center.x, center.y,
+                            center.z, 3, 1.2, .6, 1.2, .015);
                 }
             });
         }
