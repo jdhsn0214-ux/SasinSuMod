@@ -533,8 +533,12 @@ public class DivineWeaponItem extends Item {
     }
 
     private void tigerClaw(ServerLevel level, ServerPlayer player, Vec3 center, double radius, float power) {
+        // Keep the three claw lanes perpendicular to the wielder's facing direction.
+        // Using a fixed world-X offset made the attack look sideways when the player turned.
+        Vec3 forward = player.getLookAngle().normalize();
+        Vec3 side = new Vec3(-forward.z, 0.0, forward.x);
         for (int claw = -1; claw <= 1; claw++) {
-            Vec3 c = center.add(claw * .8, claw * .18, 0);
+            Vec3 c = center.add(side.scale(claw * .8)).add(0, claw * .18, 0);
             ring(level, c, radius, ParticleTypes.SWEEP_ATTACK, 28);
             burst(level, ParticleTypes.CRIT, c.x, c.y, c.z, 28, .45, .35, .45, .12);
         }
