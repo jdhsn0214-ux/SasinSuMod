@@ -52,7 +52,18 @@ public class DivineWeaponItem extends Item {
         String key = "sasinsu_cd_" + beast.name() + "_" + skill;
         long now = level.getGameTime();
         long readyAt = player.getPersistentData().getLong(key);
-        if (now < readyAt) return;
+        if (now < readyAt) {
+            // Give immediate, readable feedback instead of silently ignoring a cooldown input.
+            String feedbackKey = "sasinsu_cd_feedback_" + beast.name() + "_" + skill;
+            long feedbackReadyAt = player.getPersistentData().getLong(feedbackKey);
+            if (now >= feedbackReadyAt) {
+                long remainingSeconds = (readyAt - now + 19L) / 20L;
+                player.displayClientMessage(
+                        Component.literal("§c재사용 대기 중: " + remainingSeconds + "초"), true);
+                player.getPersistentData().putLong(feedbackKey, now + 10L);
+            }
+            return;
+        }
 
         player.getPersistentData().putLong(key, now + cooldownTicks(skill));
         InteractionHand hand = player.getMainHandItem() == stack ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
