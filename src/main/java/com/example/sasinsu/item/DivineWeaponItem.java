@@ -351,7 +351,9 @@ public class DivineWeaponItem extends Item {
                         for (LivingEntity target : impactLevel.getEntitiesOfClass(LivingEntity.class,
                                 area, entity -> entity != caster && entity.isAlive()
                                         && !entity.isAlliedTo(caster))) {
-                            target.hurt(impactLevel.damageSources().playerAttack(caster), damagePerWave);
+                            if (target.hurt(impactLevel.damageSources().playerAttack(caster), damagePerWave)) {
+                                presentHitFeedback(impactLevel, target);
+                            }
                             target.setSecondsOnFire(2);
                             target.push(0, .28 + stage * .04, 0);
                         }
@@ -370,7 +372,9 @@ public class DivineWeaponItem extends Item {
                     for (LivingEntity target : impactLevel.getEntitiesOfClass(LivingEntity.class,
                             area, entity -> entity != caster && entity.isAlive()
                                     && !entity.isAlliedTo(caster))) {
-                        target.hurt(impactLevel.damageSources().playerAttack(caster), damagePerWave);
+                        if (target.hurt(impactLevel.damageSources().playerAttack(caster), damagePerWave)) {
+                            presentHitFeedback(impactLevel, target);
+                        }
                         target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 50, 1));
                         target.push(0, .08, 0);
                     }
@@ -521,7 +525,9 @@ public class DivineWeaponItem extends Item {
             AABB roarArea = player.getBoundingBox().inflate(5.0, 2.5, 5.0);
             for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, roarArea,
                     entity -> entity != player && entity.isAlive() && !entity.isAlliedTo(player))) {
-                target.hurt(level.damageSources().playerAttack(player), 5.0f);
+                if (target.hurt(level.damageSources().playerAttack(player), 5.0f)) {
+                    presentHitFeedback(level, target);
+                }
                 target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 50, 0));
                 target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 30, 1));
                 Vec3 away = target.position().subtract(player.position()).normalize().scale(1.55);
@@ -605,7 +611,9 @@ public class DivineWeaponItem extends Item {
                     for (LivingEntity target : dashLevel.getEntitiesOfClass(LivingEntity.class,
                             strikeArea, entity -> entity != caster && entity.isAlive()
                                     && !entity.isAlliedTo(caster))) {
-                        target.hurt(dashLevel.damageSources().playerAttack(caster), strikeDamage);
+                        if (target.hurt(dashLevel.damageSources().playerAttack(caster), strikeDamage)) {
+                            presentHitFeedback(dashLevel, target);
+                        }
                         target.setSecondsOnFire(stage == 3 ? 4 : 2);
                         target.push(dashDirection.x * .48, stage == 3 ? .3 : .18,
                                 dashDirection.z * .48);
