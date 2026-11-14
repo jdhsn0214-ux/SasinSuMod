@@ -710,9 +710,45 @@ public class DivineWeaponItem extends Item {
         List<LivingEntity> targets = level.getEntitiesOfClass(LivingEntity.class, area,
                 entity -> entity != player && entity.isAlive() && !entity.isAlliedTo(player));
         for (LivingEntity target : targets) {
-            target.hurt(level.damageSources().playerAttack(player), amount);
+            if (target.hurt(level.damageSources().playerAttack(player), amount)) {
+                presentHitFeedback(level, target);
+            }
             Vec3 knockback = target.position().subtract(player.position()).normalize().scale(0.85);
             target.push(knockback.x, 0.28, knockback.z);
+        }
+    }
+
+    /**
+     * Compact, weapon-specific confirmation at the exact moment damage is accepted.
+     * This keeps a successful hit readable without adding another large area burst.
+     */
+    private void presentHitFeedback(ServerLevel level, LivingEntity target) {
+        Vec3 impact = target.position().add(0, Math.max(0.4, target.getBbHeight() * 0.55), 0);
+        switch (beast) {
+            case AZURE_DRAGON -> {
+                burst(level, ParticleTypes.ELECTRIC_SPARK, impact.x, impact.y, impact.z,
+                        14, .24, .28, .24, .08);
+                burst(level, ParticleTypes.DRAGON_BREATH, impact.x, impact.y, impact.z,
+                        5, .16, .2, .16, .025);
+            }
+            case WHITE_TIGER -> {
+                burst(level, ParticleTypes.CRIT, impact.x, impact.y, impact.z,
+                        12, .28, .24, .28, .12);
+                burst(level, ParticleTypes.SWEEP_ATTACK, impact.x, impact.y, impact.z,
+                        1, 0, 0, 0, 0);
+            }
+            case VERMILION_BIRD -> {
+                burst(level, ParticleTypes.FLAME, impact.x, impact.y, impact.z,
+                        12, .22, .28, .22, .055);
+                burst(level, ParticleTypes.SOUL_FIRE_FLAME, impact.x, impact.y, impact.z,
+                        5, .16, .2, .16, .035);
+            }
+            case BLACK_TORTOISE -> {
+                burst(level, ParticleTypes.SNOWFLAKE, impact.x, impact.y, impact.z,
+                        14, .26, .3, .26, .045);
+                burst(level, ParticleTypes.ENCHANT, impact.x, impact.y, impact.z,
+                        8, .2, .24, .2, .12);
+            }
         }
     }
 
