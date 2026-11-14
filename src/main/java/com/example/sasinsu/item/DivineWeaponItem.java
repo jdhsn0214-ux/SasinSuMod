@@ -623,15 +623,29 @@ public class DivineWeaponItem extends Item {
     }
 
     private void tigerClaw(ServerLevel level, ServerPlayer player, Vec3 center, double radius, float power) {
-        // Keep the three claw lanes perpendicular to the wielder's facing direction.
-        // Using a fixed world-X offset made the attack look sideways when the player turned.
+        // Three curved, upright claw cuts follow the player's facing direction.
+        // A horizontal ring looked like a generic shockwave; these arcs read as axe/claw slashes.
         Vec3 forward = player.getLookAngle().normalize();
         Vec3 side = new Vec3(-forward.z, 0.0, forward.x);
         for (int claw = -1; claw <= 1; claw++) {
-            Vec3 c = center.add(side.scale(claw * .8)).add(0, claw * .18, 0);
-            ring(level, c, radius, ParticleTypes.SWEEP_ATTACK, 28);
-            burst(level, ParticleTypes.CRIT, c.x, c.y, c.z, 28, .45, .35, .45, .12);
+            Vec3 laneCenter = center.add(forward.scale(claw * .22));
+            for (int segment = 0; segment <= 8; segment++) {
+                double t = segment / 8.0;
+                double across = (t - .5) * radius * 1.15;
+                double lift = Math.sin(t * Math.PI) * Math.min(1.45, radius * .34);
+                Vec3 point = laneCenter.add(side.scale(across))
+                        .add(0, lift + claw * .16, 0);
+                burst(level, ParticleTypes.SWEEP_ATTACK, point.x, point.y, point.z,
+                        1, 0, 0, 0, 0);
+                if (segment % 2 == 0) {
+                    burst(level, ParticleTypes.CRIT, point.x, point.y, point.z,
+                            5, .12, .16, .12, .08);
+                }
+            }
         }
+        // A compact ground kick anchors the three slashes without replacing them with a ring.
+        burst(level, ParticleTypes.CLOUD, center.x, center.y, center.z,
+                24, radius * .42, .12, radius * .42, .075);
         damage(level, player, center, radius, power);
     }
 
