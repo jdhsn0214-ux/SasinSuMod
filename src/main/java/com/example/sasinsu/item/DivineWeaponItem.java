@@ -70,6 +70,7 @@ public class DivineWeaponItem extends Item {
 
         // Each beast has its own wind-up silhouette instead of sharing one generic ring.
         presentWindup(level, player, skill);
+        scheduleWindupStages(player, skill, hand);
 
         SkillSequenceManager.schedule(player, windupTicks(skill), caster -> {
             ItemStack currentStack = caster.getItemInHand(hand);
@@ -150,6 +151,78 @@ public class DivineWeaponItem extends Item {
                 level.playSound(null, player.blockPosition(), SoundEvents.SHIELD_BLOCK,
                         SoundSource.PLAYERS, skill == 3 ? 1.35f : .8f, .7f);
             }
+        }
+    }
+
+    /**
+     * Adds visible charge beats during the wind-up. Each weapon builds power
+     * with its own geometry so the pause before impact reads as an animation,
+     * not as a delayed one-shot particle burst.
+     */
+    private void scheduleWindupStages(ServerPlayer player, int skill, InteractionHand hand) {
+        int stages = skill == 3 ? 3 : skill == 2 ? 2 : 1;
+        int totalWindup = windupTicks(skill);
+        for (int beat = 1; beat <= stages; beat++) {
+            final int stage = beat;
+            int delay = Math.max(1, totalWindup * beat / (stages + 1));
+            SkillSequenceManager.schedule(player, delay, caster -> {
+                if (!(caster.level() instanceof ServerLevel stageLevel)
+                        || caster.getItemInHand(hand).getItem() != this) return;
+
+                Vec3 base = caster.position().add(0, 0.2, 0);
+                Vec3 look = caster.getLookAngle().normalize();
+                double power = stage / (double) stages;
+                switch (beast) {
+                    case AZURE_DRAGON -> {
+                        // Two jagged electrical rails converge toward the sword's aim.
+                        Vec3 side = new Vec3(-look.z, 0, look.x);
+                        for (int segment = 1; segment <= 4; segment++) {
+                            Vec3 point = base.add(look.scale(segment * (0.38 + power * 0.12)))
+                                    .add(0, 0.55 + Math.sin(segment * 1.7 + stage) * 0.28, 0);
+                            for (int rail = -1; rail <= 1; rail += 2) {
+                                Vec3 arc = point.add(side.scale(rail * (0.42 - power * 0.18)));
+                                burst(stageLevel, ParticleTypes.ELECTRIC_SPARK,
+                                        arc.x, arc.y + 0.7, arc.z, 7 + stage * 3,
+                                        0.08, 0.16, 0.08, 0.035 + power * 0.025);
+                            }
+                        }
+                    }
+                    case WHITE_TIGER -> {
+                        // Three claw-shaped slashes tighten and brighten around the axe.
+                        Vec3 side = new Vec3(-look.z, 0, look.x);
+                        for (int claw = -1; claw <= 1; claw++) {
+                            Vec3 point = base.add(look.scale(0.9 + power * 0.65))
+                                    .add(side.scale(claw * (0.95 - power * 0.18)))
+                                    .add(0, 0.65 + claw * 0.16, 0);
+                            burst(stageLevel, ParticleTypes.SWEEP_ATTACK,
+                                    point.x, point.y, point.z, 1, 0, 0, 0, 0);
+                            burst(stageLevel, ParticleTypes.CRIT,
+                                    point.x, point.y, point.z, 10 + stage * 5,
+                                    0.18, 0.2, 0.18, 0.09 + power * 0.04);
+                        }
+                    }
+                    case VERMILION_BIRD -> {
+                        // A rising spiral climbs higher and widens into a phoenix plume.
+                        for (int feather = 0; feather < 9; feather++) {
+                            double angle = feather * Math.PI * 2.0 / 9.0 + stage * 0.42;
+                            double radius = 0.35 + power * 0.48;
+                            double x = caster.getX() + Math.cos(angle) * radius;
+                            double z = caster.getZ() + Math.sin(angle) * radius;
+                            double y = caster.getY() + 0.25 + feather * (0.13 + power * 0.035);
+                            burst(stageLevel, feather % 3 == 0
+                                            ? ParticleTypes.SOUL_FIRE_FLAME : ParticleTypes.FLAME,
+                                    x, y, z, 5 + stage * 3, 0.07, 0.12, 0.07, 0.025 + power * 0.02);
+                        }
+                    }
+                    case BLACK_TORTOISE -> {
+                        // Nested shell bands expand in measured defensive pulses.
+                        double radius = 0.85 + power * (skill == 3 ? 1.9 : 0.9);
+                        ring(stageLevel, base, radius, ParticleTypes.SNOWFLAKE, 28 + stage * 8);
+                        ring(stageLevel, base.add(0, 0.55, 0),
+                                radius * 0.72, ParticleTypes.ENCHANT, 20 + stage * 6);
+                    }
+                }
+            });
         }
     }
 
