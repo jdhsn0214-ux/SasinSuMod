@@ -526,13 +526,43 @@ public class DivineWeaponItem extends Item {
                                 center.z, 34, radius * .3, .22, radius * .3, .1);
                     }
                     case VERMILION_BIRD -> {
-                        // Each beat rises higher while the fiery radius expands.
+                        // Phoenix silhouette: mirrored wings unfurl from the body on each rising beat.
+                        // The side axis follows the caster's facing, so the bird turns with the attack.
                         Vec3 rising = center.add(0, stage * .9, 0);
-                        ring(impactLevel, rising, radius, ParticleTypes.FLAME, 48);
-                        ring(impactLevel, rising.add(0, .35, 0), radius * .68,
-                                ParticleTypes.SOUL_FIRE_FLAME, 36);
+                        Vec3 forward = caster.getLookAngle().normalize();
+                        Vec3 side = new Vec3(-forward.z, 0, forward.x);
+                        for (int wing = -1; wing <= 1; wing += 2) {
+                            for (int feather = 0; feather <= 12; feather++) {
+                                double t = feather / 12.0;
+                                double span = t * (1.45 + stage * .42);
+                                double sweep = Math.sin(t * Math.PI * .72) * .72;
+                                double lift = Math.sin(t * Math.PI) * (1.0 + stage * .18)
+                                        + t * .28;
+                                Vec3 plume = rising.add(side.scale(wing * span))
+                                        .add(forward.scale(-sweep))
+                                        .add(0, lift, 0);
+                                burst(impactLevel, feather % 3 == 0
+                                                ? ParticleTypes.SOUL_FIRE_FLAME : ParticleTypes.FLAME,
+                                        plume.x, plume.y, plume.z,
+                                        feather % 3 == 0 ? 4 : 3,
+                                        .08, .1, .08, .025 + stage * .008);
+                                if (feather % 3 == 0) {
+                                    burst(impactLevel, ParticleTypes.SMALL_FLAME,
+                                            plume.x, plume.y + .12, plume.z,
+                                            2, .035, .06, .035, .012);
+                                }
+                            }
+                        }
+                        // A bright spine and crown make the two wings read as one phoenix.
+                        for (int feather = 0; feather < 5; feather++) {
+                            Vec3 spine = rising.add(forward.scale(-feather * .12))
+                                    .add(0, feather * .34, 0);
+                            burst(impactLevel, ParticleTypes.FLAME, spine.x, spine.y,
+                                    spine.z, 7, .12, .16, .12, .035);
+                        }
+                        ring(impactLevel, rising, radius * .72, ParticleTypes.FLAME, 36);
                         burst(impactLevel, ParticleTypes.LAVA, rising.x, rising.y,
-                                rising.z, 26, radius * .22, .25, radius * .22, .025);
+                                rising.z, 18, radius * .16, .2, radius * .16, .02);
                     }
                     case BLACK_TORTOISE -> {
                         // Interlocking shell layers pulse outward and reinforce the wielder.
