@@ -547,7 +547,7 @@ public class DivineWeaponItem extends Item {
                                         feather % 3 == 0 ? 4 : 3,
                                         .08, .1, .08, .025 + stage * .008);
                                 if (feather % 3 == 0) {
-                                    burst(impactLevel, ParticleTypes.SMALL_FLAME,
+                                    burst(impactLevel, ParticleTypes.FLAME,
                                             plume.x, plume.y + .12, plume.z,
                                             2, .035, .06, .035, .012);
                                 }
