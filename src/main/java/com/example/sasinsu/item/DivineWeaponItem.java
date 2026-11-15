@@ -891,8 +891,11 @@ public class DivineWeaponItem extends Item {
             scheduleUltimateAftershocks(player, center);
         } else {
             // Immutable Counter: enter a real guard stance instead of performing another generic AoE.
+            long guardStartedAt = level.getGameTime();
             player.getPersistentData().putLong(TortoiseGuardHandler.GUARD_UNTIL,
-                    level.getGameTime() + 70L);
+                    guardStartedAt + 70L);
+            player.getPersistentData().putLong(TortoiseGuardHandler.PERFECT_GUARD_UNTIL,
+                    guardStartedAt + 8L);
             player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 12, 1));
             ring(level, o, 2.6, ParticleTypes.SNOWFLAKE, 48);
             ring(level, o.add(0, .75, 0), 2.0, ParticleTypes.ENCHANT, 36);
