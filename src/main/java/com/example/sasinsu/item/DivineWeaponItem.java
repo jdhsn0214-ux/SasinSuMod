@@ -693,13 +693,25 @@ public class DivineWeaponItem extends Item {
             tigerClaw(level, player, center, 2.7, 6.0f);
             scheduleWeaponFollowthrough(player, center, d, 2.0f, 2.5);
         } else if (skill == 2) {
+            // Three advancing heavy claw cuts resolve as separate attack beats,
+            // replacing the old stack of circular shockwave rings.
             for (int n = 0; n < 3; n++) {
-                Vec3 wave = center.add(d.scale(n * 1.1));
-                ring(level, wave, 2.0 + n * .6, ParticleTypes.CRIT, 56);
-                damage(level, player, wave, 2.6, 5.0f);
+                final int beat = n;
+                SkillSequenceManager.schedule(player, beat * 3, caster -> {
+                    if (!(caster.level() instanceof ServerLevel strikeLevel)) return;
+                    Vec3 slashCenter = center.add(d.scale(beat * 1.35));
+                    tigerClaw(strikeLevel, caster, slashCenter,
+                            2.55 + beat * .22, 5.0f + beat * .8f);
+                    if (beat == 2) {
+                        burst(strikeLevel, ParticleTypes.CLOUD,
+                                slashCenter.x, slashCenter.y, slashCenter.z,
+                                72, 1.8, .22, 1.8, .13);
+                    }
+                    strikeLevel.playSound(null, caster.blockPosition(), SoundEvents.AXE_STRIP,
+                            SoundSource.PLAYERS, .85f + beat * .12f, .72f + beat * .08f);
+                });
             }
-            burst(level, ParticleTypes.CLOUD, center.x, center.y, center.z, 150, 2, .5, 2, .12);
-            scheduleWeaponFollowthrough(player, center, d, 2.2f, 2.8);
+            scheduleWeaponFollowthrough(player, center.add(d.scale(2.8)), d, 2.4f, 3.0);
         } else if (skill == 3) {
             for (int n = 0; n < 7; n++) {
                 double r = 2.0 + n * .72;
