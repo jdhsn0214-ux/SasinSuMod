@@ -565,16 +565,21 @@ public class DivineWeaponItem extends Item {
                                 rising.z, 18, radius * .16, .2, radius * .16, .02);
                     }
                     case BLACK_TORTOISE -> {
-                        // Interlocking shell layers pulse outward and reinforce the wielder.
-                        Vec3 shell = center.add(0, stage * .25, 0);
-                        ring(impactLevel, shell, radius, ParticleTypes.SNOWFLAKE, 48);
-                        ring(impactLevel, shell.add(0, .7, 0), radius * .78,
-                                ParticleTypes.SOUL_FIRE_FLAME, 40);
-                        ring(impactLevel, shell.add(0, 1.35, 0), radius * .52,
-                                ParticleTypes.ENCHANT, 32);
+                        // A true 3D shell dome grows around the wielder in three defensive pulses.
+                        // The impact zone still receives the ultimate's damage; this silhouette
+                        // makes the tortoise's protection visibly distinct from the other beasts.
+                        Vec3 guardBase = caster.position().add(0, .08, 0);
+                        double shellRadius = 2.15 + stage * .42;
+                        double shellHeight = 2.55 + stage * .48;
+                        tortoiseDome(impactLevel, guardBase, shellRadius, shellHeight, stage);
+                        ring(impactLevel, center.add(0, stage * .22, 0),
+                                1.15 + stage * .35, ParticleTypes.SNOWFLAKE, 32);
+                        burst(impactLevel, ParticleTypes.TOTEM_OF_UNDYING,
+                                guardBase.x, guardBase.y + shellHeight, guardBase.z,
+                                18 + stage * 8, .22, .18, .22, .045);
                         if (stage == 3) {
-                            caster.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 60, 1));
-                            caster.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 80, 1));
+                            caster.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 80, 1));
+                            caster.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 100, 1));
                         }
                     }
                 }
@@ -586,6 +591,46 @@ public class DivineWeaponItem extends Item {
         }
     }
 
+
+    /**
+     * Builds a layered hemispherical barrier around the Black Tortoise wielder.
+     * Horizontal latitude bands form the shell plates; curved meridians make
+     * the dome read as a protective structure instead of stacked flat rings.
+     */
+    private void tortoiseDome(ServerLevel level, Vec3 base, double radius,
+                              double height, int stage) {
+        int bands = 5;
+        for (int band = 1; band <= bands; band++) {
+            double angle = (Math.PI * 0.5) * band / (bands + 0.35);
+            double bandRadius = radius * Math.cos(angle);
+            double y = height * Math.sin(angle);
+            ring(level, base.add(0, y, 0), bandRadius,
+                    ParticleTypes.SNOWFLAKE, 28);
+            ring(level, base.add(0, y + .035, 0), bandRadius * .82,
+                    ParticleTypes.ENCHANT, 20);
+        }
+
+        // Eight curved ribs connect the base to the crown, outlining the dome.
+        for (int rib = 0; rib < 8; rib++) {
+            double around = Math.PI * 2.0 * rib / 8.0;
+            for (int segment = 0; segment <= 6; segment++) {
+                double t = segment / 6.0;
+                double radial = radius * Math.cos(t * Math.PI * 0.5);
+                double y = height * Math.sin(t * Math.PI * 0.5);
+                double x = base.x + Math.cos(around) * radial;
+                double z = base.z + Math.sin(around) * radial;
+                burst(level, segment % 2 == 0
+                                ? ParticleTypes.SOUL_FIRE_FLAME : ParticleTypes.SNOWFLAKE,
+                        x, base.y + y, z, 2, .045, .06, .045,
+                        .018 + stage * .006);
+            }
+        }
+
+        // A bright crown marks the apex and gives each pulse a readable finish.
+        burst(level, ParticleTypes.TOTEM_OF_UNDYING,
+                base.x, base.y + height, base.z, 24 + stage * 8,
+                .18, .14, .18, .055);
+    }
 
     /**
      * Spawns a real vanilla lightning bolt for the Azure Dragon's signature.
