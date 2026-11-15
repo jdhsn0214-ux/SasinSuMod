@@ -899,6 +899,23 @@ public class DivineWeaponItem extends Item {
             player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 12, 1));
             ring(level, o, 2.6, ParticleTypes.SNOWFLAKE, 48);
             ring(level, o.add(0, .75, 0), 2.0, ParticleTypes.ENCHANT, 36);
+            // A shell dome unfolds in three beats during the opening perfect-guard window.
+            tortoiseDome(level, player.position().add(0, .08, 0), 2.45, 2.35, 1);
+            SkillSequenceManager.schedule(player, 3, caster -> {
+                if (!(caster.level() instanceof ServerLevel guardLevel)
+                        || guardLevel.getGameTime() > caster.getPersistentData()
+                        .getLong(TortoiseGuardHandler.GUARD_UNTIL)) return;
+                tortoiseDome(guardLevel, caster.position().add(0, .08, 0), 2.85, 2.65, 2);
+            });
+            SkillSequenceManager.schedule(player, 7, caster -> {
+                if (!(caster.level() instanceof ServerLevel guardLevel)
+                        || guardLevel.getGameTime() > caster.getPersistentData()
+                        .getLong(TortoiseGuardHandler.GUARD_UNTIL)) return;
+                tortoiseDome(guardLevel, caster.position().add(0, .08, 0), 3.15, 2.85, 3);
+                burst(guardLevel, ParticleTypes.TOTEM_OF_UNDYING,
+                        caster.getX(), caster.getY() + 1.0, caster.getZ(),
+                        36, .65, .85, .65, .1);
+            });
             burst(level, ParticleTypes.TOTEM_OF_UNDYING, o.x, o.y + .7, o.z,
                     48, .75, .9, .75, .08);
             level.playSound(null, player.blockPosition(), SoundEvents.SHIELD_BLOCK,
