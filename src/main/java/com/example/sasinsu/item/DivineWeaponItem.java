@@ -483,33 +483,49 @@ public class DivineWeaponItem extends Item {
                 double radius = 2.0 + stage * 1.25;
                 switch (beast) {
                     case AZURE_DRAGON -> {
-                        // Three lightning lanes descend visibly, segment by segment, then strike the ground.
-                        for (int lane = -1; lane <= 1; lane++) {
-                            Vec3 strike = center.add(lane * 1.15, 0, stage * .35);
-                            for (int segment = 0; segment < 5; segment++) {
-                                final int height = segment;
-                                SkillSequenceManager.schedule(caster, 1 + (4 - height), boltCaster -> {
-                                    if (!(boltCaster.level() instanceof ServerLevel boltLevel)) return;
-                                    Vec3 boltPoint = strike.add(0, height * .72, 0);
-                                    burst(boltLevel, ParticleTypes.ELECTRIC_SPARK,
-                                            boltPoint.x, boltPoint.y, boltPoint.z,
-                                            14, .13, .24, .13, .045);
-                                    if (height == 0) {
-                                        summonDragonLightning(boltLevel, strike);
-                                        ring(boltLevel, strike, .95 + stage * .3,
-                                                ParticleTypes.ELECTRIC_SPARK, 40);
-                                        burst(boltLevel, ParticleTypes.EXPLOSION,
-                                                strike.x, strike.y, strike.z, 2, .35, .18, .35, .01);
-                                        damage(boltLevel, boltCaster, strike, 1.35, 3.5f);
-                                        boltLevel.playSound(null, boltCaster.blockPosition(),
-                                                SoundEvents.TRIDENT_THUNDER, SoundSource.PLAYERS,
-                                                .65f, 1.0f + stage * .08f);
-                                    }
-                                });
-                            }
+                        // A five-point storm formation: the outer bolts surround the target
+                        // and converge on a final center strike, oriented to the caster.
+                        Vec3 forward = caster.getLookAngle().normalize();
+                        Vec3 side = new Vec3(-forward.z, 0, forward.x);
+                        double spread = 1.25 + stage * .48;
+                        Vec3[] strikes = new Vec3[] {
+                                center.add(0, 0, 0),
+                                center.add(forward.scale(spread)),
+                                center.add(forward.scale(-spread)),
+                                center.add(side.scale(spread)),
+                                center.add(side.scale(-spread))
+                        };
+
+                        // Draw a jagged electrical diamond between the five impact points.
+                        for (int edge = 1; edge < strikes.length; edge++) {
+                            dragonArc(impactLevel, strikes[edge], center, 8, stage);
                         }
-                        burst(impactLevel, ParticleTypes.DRAGON_BREATH, center.x, center.y,
-                                center.z, 42, radius * .35, .5, radius * .35, .035);
+
+                        // The four outer bolts land one after another; the center detonates last.
+                        for (int bolt = 0; bolt < strikes.length; bolt++) {
+                            final int boltIndex = bolt;
+                            SkillSequenceManager.schedule(caster, 1 + bolt * 2, boltCaster -> {
+                                if (!(boltCaster.level() instanceof ServerLevel boltLevel)) return;
+                                Vec3 strike = strikes[boltIndex];
+                                burst(boltLevel, ParticleTypes.ELECTRIC_SPARK,
+                                        strike.x, strike.y + 3.0, strike.z,
+                                        24, .18, .9, .18, .07);
+                                summonDragonLightning(boltLevel, strike);
+                                ring(boltLevel, strike, 1.05 + stage * .32,
+                                        ParticleTypes.ELECTRIC_SPARK, 44);
+                                ring(boltLevel, strike.add(0, .18, 0), .72 + stage * .2,
+                                        ParticleTypes.DRAGON_BREATH, 32);
+                                burst(boltLevel, ParticleTypes.EXPLOSION,
+                                        strike.x, strike.y, strike.z, 2, .42, .2, .42, .01);
+                                damage(boltLevel, boltCaster, strike, boltIndex == 0 ? 1.65 : 1.25,
+                                        boltIndex == 0 ? 4.5f : 3.0f);
+                                boltLevel.playSound(null, boltCaster.blockPosition(),
+                                        SoundEvents.TRIDENT_THUNDER, SoundSource.PLAYERS,
+                                        .72f, .88f + boltIndex * .09f + stage * .04f);
+                            });
+                        }
+                        burst(impactLevel, ParticleTypes.DRAGON_BREATH, center.x, center.y + .4,
+                                center.z, 64, radius * .42, .65, radius * .42, .045);
                     }
                     case WHITE_TIGER -> {
                         // Four sweeping claw arcs collapse into one heavy central strike.
@@ -591,6 +607,26 @@ public class DivineWeaponItem extends Item {
         }
     }
 
+
+    /**
+     * Connects storm impacts with a jagged, three-dimensional particle arc.
+     * The vanilla lightning entities remain the actual strike effect; this
+     * filament makes the storm read as one connected formation.
+     */
+    private void dragonArc(ServerLevel level, Vec3 from, Vec3 to, int segments, int stage) {
+        Vec3 direction = to.subtract(from);
+        Vec3 side = new Vec3(-direction.z, 0, direction.x);
+        if (side.lengthSqr() > 1.0E-4) side = side.normalize();
+        for (int i = 0; i <= segments; i++) {
+            double t = i / (double) segments;
+            double jag = (i % 2 == 0 ? 1 : -1) * (.12 + stage * .035);
+            Vec3 point = from.lerp(to, t)
+                    .add(side.scale(jag))
+                    .add(0, Math.sin(t * Math.PI) * (.32 + stage * .08), 0);
+            burst(level, ParticleTypes.ELECTRIC_SPARK,
+                    point.x, point.y + .25, point.z, 5, .055, .09, .055, .035);
+        }
+    }
 
     /**
      * Builds a layered hemispherical barrier around the Black Tortoise wielder.
