@@ -489,11 +489,11 @@ public class DivineWeaponItem extends Item {
                         Vec3 side = new Vec3(-forward.z, 0, forward.x);
                         double spread = 1.25 + stage * .48;
                         Vec3[] strikes = new Vec3[] {
-                                center.add(0, 0, 0),
                                 center.add(forward.scale(spread)),
                                 center.add(forward.scale(-spread)),
                                 center.add(side.scale(spread)),
-                                center.add(side.scale(-spread))
+                                center.add(side.scale(-spread)),
+                                center.add(0, 0, 0)
                         };
 
                         // Draw a jagged electrical diamond between the five impact points.
@@ -517,8 +517,8 @@ public class DivineWeaponItem extends Item {
                                         ParticleTypes.DRAGON_BREATH, 32);
                                 burst(boltLevel, ParticleTypes.EXPLOSION,
                                         strike.x, strike.y, strike.z, 2, .42, .2, .42, .01);
-                                damage(boltLevel, boltCaster, strike, boltIndex == 0 ? 1.65 : 1.25,
-                                        boltIndex == 0 ? 4.5f : 3.0f);
+                                damage(boltLevel, boltCaster, strike, boltIndex == 4 ? 1.65 : 1.25,
+                                        boltIndex == 4 ? 4.5f : 3.0f);
                                 boltLevel.playSound(null, boltCaster.blockPosition(),
                                         SoundEvents.TRIDENT_THUNDER, SoundSource.PLAYERS,
                                         .72f, .88f + boltIndex * .09f + stage * .04f);
