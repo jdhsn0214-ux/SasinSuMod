@@ -421,9 +421,10 @@ public class DivineWeaponItem extends Item {
             }
             case VERMILION_BIRD -> {
                 // Phoenix: rising three-hit aerial spiral; victims are lifted and scorched.
+                // Space impacts by the full vanilla hurt window so all three stages can deal damage.
                 for (int beat = 1; beat <= 3; beat++) {
                     final int stage = beat;
-                    SkillSequenceManager.schedule(player, stage * 3, caster -> {
+                    SkillSequenceManager.schedule(player, stage * 10, caster -> {
                         if (!(caster.level() instanceof ServerLevel impactLevel)) return;
                         double angle = stage * Math.PI * .72;
                         Vec3 strike = center.add(Math.cos(angle) * radius * .45,
@@ -694,10 +695,11 @@ public class DivineWeaponItem extends Item {
             scheduleWeaponFollowthrough(player, center, d, 2.0f, 2.5);
         } else if (skill == 2) {
             // Three advancing heavy claw cuts resolve as separate attack beats,
-            // replacing the old stack of circular shockwave rings.
+            // replacing the old stack of circular shockwave rings. Ten-tick spacing
+            // lets each cut land after the vanilla hurt window instead of losing later hits.
             for (int n = 0; n < 3; n++) {
                 final int beat = n;
-                SkillSequenceManager.schedule(player, beat * 3, caster -> {
+                SkillSequenceManager.schedule(player, beat * 10, caster -> {
                     if (!(caster.level() instanceof ServerLevel strikeLevel)) return;
                     Vec3 slashCenter = center.add(d.scale(beat * 1.35));
                     tigerClaw(strikeLevel, caster, slashCenter,
