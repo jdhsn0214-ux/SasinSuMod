@@ -27,10 +27,26 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
 
 public class DivineWeaponItem extends Item {
     public enum BEAST { AZURE_DRAGON, WHITE_TIGER, VERMILION_BIRD, BLACK_TORTOISE }
     private final BEAST beast;
+
+    // A per-dimension, per-tick ceiling prevents simultaneous ultimates from
+    // flooding clients with thousands of particles in one server tick.
+    private static final int MAX_PARTICLES_PER_LEVEL_PER_TICK = 1400;
+    private static final Map<ServerLevel, ParticleBudget> PARTICLE_BUDGETS = new WeakHashMap<>();
+
+    private static final class ParticleBudget {
+        private long tick;
+        private int used;
+
+        private ParticleBudget(long tick) {
+            this.tick = tick;
+        }
+    }
 
     public DivineWeaponItem(BEAST beast, Properties properties) {
         super(properties);
@@ -947,12 +963,30 @@ public class DivineWeaponItem extends Item {
         }
     }
 
-    /** Caps one particle burst so a single skill cannot flood nearby clients. */
+    /**
+     * Caps both individual bursts and the combined particle volume for a
+     * dimension in one tick. The budget resets automatically on the next tick;
+     * weak level keys avoid retaining unloaded dimensions.
+     */
     private void burst(ServerLevel level, ParticleOptions particle, double x, double y, double z,
                        int count, double xOffset, double yOffset, double zOffset, double speed) {
-        int budgetedCount = Math.max(0, Math.min(count, 96));
-        if (budgetedCount == 0) return;
-        level.sendParticles(particle, x, y, z, budgetedCount,
+        int requested = Math.max(0, Math.min(count, 96));
+        if (requested == 0) return;
+
+        long tick = level.getGameTime();
+        ParticleBudget budget = PARTICLE_BUDGETS.computeIfAbsent(level,
+                ignored -> new ParticleBudget(tick));
+        if (budget.tick != tick) {
+            budget.tick = tick;
+            budget.used = 0;
+        }
+
+        int remaining = MAX_PARTICLES_PER_LEVEL_PER_TICK - budget.used;
+        int allowed = Math.min(requested, remaining);
+        if (allowed <= 0) return;
+
+        budget.used += allowed;
+        level.sendParticles(particle, x, y, z, allowed,
                 xOffset, yOffset, zOffset, speed);
     }
 
