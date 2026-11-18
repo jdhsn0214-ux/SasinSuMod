@@ -995,9 +995,11 @@ public class DivineWeaponItem extends Item {
         List<LivingEntity> targets = level.getEntitiesOfClass(LivingEntity.class, area,
                 entity -> entity != player && entity.isAlive() && !entity.isAlliedTo(player));
         for (LivingEntity target : targets) {
-            if (target.hurt(level.damageSources().playerAttack(player), amount)) {
-                presentHitFeedback(level, target);
-            }
+            // Minecraft's hurt cooldown can reject overlapping pulses in the same tick.
+            // Only accepted hits should produce impact feedback or move the target.
+            if (!target.hurt(level.damageSources().playerAttack(player), amount)) continue;
+
+            presentHitFeedback(level, target);
             Vec3 knockback = target.position().subtract(player.position()).normalize().scale(0.85);
             target.push(knockback.x, 0.28, knockback.z);
         }
