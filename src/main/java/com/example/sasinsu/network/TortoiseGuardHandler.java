@@ -5,7 +5,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.phys.Vec3;
@@ -21,11 +20,15 @@ public final class TortoiseGuardHandler {
     public static final String GUARD_UNTIL = "sasinsu_tortoise_guard_until";
     public static final String PERFECT_GUARD_UNTIL = "sasinsu_tortoise_perfect_guard_until";
     private static final String COUNTER_READY_AT = "sasinsu_tortoise_counter_ready";
+    // Counter damage can itself raise LivingHurtEvent; prevent two guarding players
+    // from recursively reflecting damage into one another.
+    private static final ThreadLocal<Boolean> COUNTER_DAMAGE = new ThreadLocal<>();
 
     private TortoiseGuardHandler() {}
 
     @SubscribeEvent
     public static void onLivingHurt(LivingHurtEvent event) {
+        if (Boolean.TRUE.equals(COUNTER_DAMAGE.get())) return;
         if (!(event.getEntity() instanceof ServerPlayer player)
                 || !(player.level() instanceof ServerLevel level)) return;
 
@@ -55,7 +58,19 @@ public final class TortoiseGuardHandler {
 
         if (event.getSource().getEntity() instanceof LivingEntity attacker
                 && attacker != player && attacker.isAlive()) {
-            attacker.hurt(level.damageSources().playerAttack(player), perfectGuard ? 7.0f : 4.0f);
+            boolean counterAccepted;
+            COUNTER_DAMAGE.set(Boolean.TRUE);
+            try {
+                counterAccepted = attacker.hurt(level.damageSources().playerAttack(player),
+                        perfectGuard ? 7.0f : 4.0f);
+            } finally {
+                COUNTER_DAMAGE.remove();
+            }
+
+            // Hurt cooldowns or invulnerability may reject the counter hit. Do not
+            // apply a fake impact, slow, or knockback when no damage was accepted.
+            if (!counterAccepted) return;
+
             level.sendParticles(ParticleTypes.SNOWFLAKE, attacker.getX(),
                     attacker.getY() + Math.max(.4, attacker.getBbHeight() * .55), attacker.getZ(),
                     14, .28, .32, .28, .045);
