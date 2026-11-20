@@ -301,7 +301,16 @@ public class DivineWeaponItem extends Item {
     }
 
     private net.minecraft.sounds.SoundEvent soundFor(int skill) {
-        if (skill == 3) return SoundEvents.LIGHTNING_BOLT_THUNDER;
+        // Keep the ultimate impact audio tied to each weapon's identity instead
+        // of making every beast finish with the same thunder cue.
+        if (skill == 3) {
+            return switch (beast) {
+                case AZURE_DRAGON -> SoundEvents.LIGHTNING_BOLT_THUNDER;
+                case WHITE_TIGER -> SoundEvents.RAVAGER_ROAR;
+                case VERMILION_BIRD -> SoundEvents.FIRECHARGE_USE;
+                case BLACK_TORTOISE -> SoundEvents.SHIELD_BLOCK;
+            };
+        }
         return switch (beast) {
             case AZURE_DRAGON -> SoundEvents.PLAYER_ATTACK_SWEEP;
             case WHITE_TIGER -> SoundEvents.PLAYER_ATTACK_STRONG;
