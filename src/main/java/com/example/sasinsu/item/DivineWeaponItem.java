@@ -461,9 +461,10 @@ public class DivineWeaponItem extends Item {
                         for (LivingEntity target : impactLevel.getEntitiesOfClass(LivingEntity.class,
                                 area, entity -> entity != caster && entity.isAlive()
                                         && !entity.isAlliedTo(caster))) {
-                            if (target.hurt(impactLevel.damageSources().playerAttack(caster), damagePerWave)) {
-                                presentHitFeedback(impactLevel, target);
+                            if (!target.hurt(impactLevel.damageSources().playerAttack(caster), damagePerWave)) {
+                                continue;
                             }
+                            presentHitFeedback(impactLevel, target);
                             target.setSecondsOnFire(2);
                             target.push(0, .28 + stage * .04, 0);
                         }
@@ -482,9 +483,10 @@ public class DivineWeaponItem extends Item {
                     for (LivingEntity target : impactLevel.getEntitiesOfClass(LivingEntity.class,
                             area, entity -> entity != caster && entity.isAlive()
                                     && !entity.isAlliedTo(caster))) {
-                        if (target.hurt(impactLevel.damageSources().playerAttack(caster), damagePerWave)) {
-                            presentHitFeedback(impactLevel, target);
+                        if (!target.hurt(impactLevel.damageSources().playerAttack(caster), damagePerWave)) {
+                            continue;
                         }
+                        presentHitFeedback(impactLevel, target);
                         target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 50, 1));
                         target.push(0, .08, 0);
                     }
@@ -859,9 +861,10 @@ public class DivineWeaponItem extends Item {
                     for (LivingEntity target : dashLevel.getEntitiesOfClass(LivingEntity.class,
                             strikeArea, entity -> entity != caster && entity.isAlive()
                                     && !entity.isAlliedTo(caster))) {
-                        if (target.hurt(dashLevel.damageSources().playerAttack(caster), strikeDamage)) {
-                            presentHitFeedback(dashLevel, target);
+                        if (!target.hurt(dashLevel.damageSources().playerAttack(caster), strikeDamage)) {
+                            continue;
                         }
+                        presentHitFeedback(dashLevel, target);
                         target.setSecondsOnFire(stage == 3 ? 4 : 2);
                         target.push(dashDirection.x * .48, stage == 3 ? .3 : .18,
                                 dashDirection.z * .48);
