@@ -36,6 +36,10 @@ public final class TortoiseGuardHandler {
         long guardUntil = player.getPersistentData().getLong(GUARD_UNTIL);
         if (now > guardUntil || guardUntil == 0L) return;
 
+        // Ignore zero or negative damage events: they must not consume the guard
+        // retaliation cooldown or trigger a free counterattack.
+        if (!(event.getAmount() > 0.0f)) return;
+
         // The opening 8 ticks reward precise timing with a stronger perfect guard.
         long perfectGuardUntil = player.getPersistentData().getLong(PERFECT_GUARD_UNTIL);
         boolean perfectGuard = perfectGuardUntil > 0L && now < perfectGuardUntil;
